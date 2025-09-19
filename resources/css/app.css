@@ -1,0 +1,1127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==============================================
+   АДАПТИВНАЯ СИСТЕМА ДИЗАЙНА
+   ============================================== */
+
+/* Базовые настройки для адаптивности */
+:root {
+  /* Базовые размеры на основе rem */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  
+  /* Отступы и размеры */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-base: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 4rem;
+  
+  /* Высоты и ширины */
+  --height-nav: 4rem;
+  --height-header: 6rem;
+  --width-sidebar: 16rem;
+  --width-mobile-menu: 16rem;
+  
+  /* Радиусы */
+  --radius-sm: 0.25rem;
+  --radius-base: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  
+  /* Тени */
+  --shadow-sm: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.1);
+  --shadow-base: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+  
+  /* Сетки */
+  --grid-gap: 1rem;
+  --grid-columns-mobile: 1fr;
+  --grid-columns-tablet: repeat(2, 1fr);
+  --grid-columns-desktop: repeat(4, 1fr);
+  
+  /* Календарь */
+  --calendar-cell-height: 3rem;
+  --calendar-time-width: 5rem;
+  --calendar-gap: 0.0625rem;
+  
+  /* Цвета (остаются неизменными для визуальной идентичности) */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-secondary: #6b7280;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --color-text: #1f2937;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+}
+
+/* Адаптивная настройка базовых размеров */
+html {
+  font-size: 100%; /* 16px базовый размер */
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Мобильные устройства (320px - 768px) */
+@media screen and (max-width: 48rem) {
+  :root {
+    --font-size-xs: 0.7rem;
+    --font-size-sm: 0.8rem;
+    --font-size-base: 0.9rem;
+    --font-size-lg: 1rem;
+    --font-size-xl: 1.1rem;
+    --font-size-2xl: 1.3rem;
+    --font-size-3xl: 1.6rem;
+    --font-size-4xl: 1.9rem;
+    
+    --spacing-xs: 0.2rem;
+    --spacing-sm: 0.4rem;
+    --spacing-base: 0.8rem;
+    --spacing-lg: 1.2rem;
+    --spacing-xl: 1.6rem;
+    --spacing-2xl: 2.4rem;
+    --spacing-3xl: 3.2rem;
+    
+    --height-nav: 3.5rem;
+    --height-header: 5rem;
+    --width-mobile-menu: 80vw;
+    
+    --grid-gap: 0.8rem;
+    --grid-columns-mobile: 1fr;
+    --grid-columns-tablet: 1fr;
+    --grid-columns-desktop: repeat(2, 1fr);
+    
+    --calendar-cell-height: 2.5rem;
+    --calendar-time-width: 3.75rem;
+  }
+}
+
+/* Планшеты (768px - 1024px) */
+@media screen and (min-width: 48rem) and (max-width: 64rem) {
+  :root {
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-base: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+    --spacing-3xl: 4rem;
+    
+    --height-nav: 4rem;
+    --height-header: 6rem;
+    --width-mobile-menu: 20rem;
+    
+    --grid-gap: 1rem;
+    --grid-columns-mobile: 1fr;
+    --grid-columns-tablet: repeat(2, 1fr);
+    --grid-columns-desktop: repeat(3, 1fr);
+    
+    --calendar-cell-height: 3rem;
+    --calendar-time-width: 5rem;
+  }
+}
+
+/* Десктопы (1024px+) */
+@media screen and (min-width: 64rem) {
+  :root {
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-base: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+    --spacing-3xl: 4rem;
+    
+    --height-nav: 4rem;
+    --height-header: 6rem;
+    --width-sidebar: 16rem;
+    
+    --grid-gap: 1rem;
+    --grid-columns-mobile: 1fr;
+    --grid-columns-tablet: repeat(2, 1fr);
+    --grid-columns-desktop: repeat(4, 1fr);
+    
+    --calendar-cell-height: 3rem;
+    --calendar-time-width: 5rem;
+  }
+}
+
+/* Крупные экраны (1440px+) */
+@media screen and (min-width: 90rem) {
+  :root {
+    --font-size-xs: 0.8rem;
+    --font-size-sm: 0.9rem;
+    --font-size-base: 1.1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.4rem;
+    --font-size-2xl: 1.7rem;
+    --font-size-3xl: 2.1rem;
+    --font-size-4xl: 2.5rem;
+    
+    --grid-columns-desktop: repeat(5, 1fr);
+    --calendar-cell-height: 3.5rem;
+    --calendar-time-width: 6rem;
+  }
+}
+
+/* ==============================================
+   БАЗОВЫЕ СТИЛИ
+   ============================================== */
+
+/* Обеспечиваем корректное отображение на всех устройствах */
+html, body {
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-text);
+  background-color: var(--color-background);
+  margin: 0;
+  padding: 0;
+}
+
+/* ==============================================
+   АДАПТИВНЫЕ СЕТКИ
+   ============================================== */
+
+/* Основная сетка контейнера */
+.adaptive-container {
+  max-width: 90rem;
+  margin: 0 auto;
+  padding: 0 var(--spacing-base);
+}
+
+/* Мобильная адаптивная сетка */
+@media screen and (max-width: 48rem) {
+  .adaptive-container {
+    padding: 0 var(--spacing-sm);
+  }
+}
+
+/* Адаптивная сетка карточек */
+.adaptive-grid {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: var(--grid-columns-mobile);
+  align-items: stretch; /* Выравнивание элементов по высоте */
+}
+
+@media screen and (min-width: 48rem) {
+  .adaptive-grid {
+    grid-template-columns: var(--grid-columns-tablet);
+  }
+}
+
+@media screen and (min-width: 64rem) {
+  .adaptive-grid {
+    grid-template-columns: var(--grid-columns-desktop);
+  }
+}
+
+/* Адаптивная сетка для форм */
+.adaptive-form-grid {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: 1fr;
+}
+
+@media screen and (min-width: 48rem) {
+  .adaptive-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (min-width: 64rem) {
+  .adaptive-form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ==============================================
+   АДАПТИВНЫЕ КОМПОНЕНТЫ
+   ============================================== */
+
+/* Адаптивные карточки */
+.adaptive-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-base);
+  box-shadow: var(--shadow-base);
+  padding: var(--spacing-lg);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Обеспечивает равную высоту в grid */
+}
+
+.adaptive-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-0.125rem);
+}
+
+/* Для равномерного распределения содержимого в карточке */
+.adaptive-card-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.adaptive-card-content > *:last-child {
+  margin-top: auto;
+}
+
+/* Специальный класс для карточек с равной высотой */
+.adaptive-card-equal-height {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.adaptive-card-equal-height .card-content {
+  flex-grow: 1;
+}
+
+.adaptive-card-equal-height .card-footer {
+  margin-top: auto;
+}
+
+/* Адаптивные кнопки */
+.adaptive-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-base);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-base);
+  border: 0.0625rem solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 2.75rem;
+  min-width: 5rem;
+}
+
+.adaptive-button-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.adaptive-button-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+@media screen and (max-width: 48rem) {
+  .adaptive-button {
+    width: 100%;
+    padding: var(--spacing-base) var(--spacing-lg);
+    font-size: var(--font-size-base);
+  }
+}
+
+/* Адаптивная навигация */
+.adaptive-nav {
+  height: var(--height-nav);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.adaptive-nav-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 var(--spacing-base);
+}
+
+.adaptive-nav-brand {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.adaptive-nav-links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.adaptive-nav-link {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  padding: var(--spacing-sm) var(--spacing-base);
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+}
+
+.adaptive-nav-link:hover,
+.adaptive-nav-link-active {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Скрываем десктопную навигацию на мобильных */
+@media screen and (max-width: 48rem) {
+  .adaptive-nav-links {
+    display: none;
+  }
+}
+
+/* ==============================================
+   АДАПТИВНЫЕ ФОРМЫ
+   ============================================== */
+
+.adaptive-form {
+  background-color: var(--color-surface);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-base);
+}
+
+.adaptive-form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.adaptive-form-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-xs);
+}
+
+.adaptive-form-input {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-base);
+  font-size: var(--font-size-base);
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  transition: all 0.3s ease;
+}
+
+.adaptive-form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.1875rem rgba(59, 130, 246, 0.1);
+}
+
+/* Предотвращаем зум на iOS */
+@media screen and (max-width: 48rem) {
+  .adaptive-form-input {
+    font-size: 1rem;
+  }
+}
+
+/* ==============================================
+   АДАПТИВНЫЕ ТАБЛИЦЫ
+   ============================================== */
+
+.adaptive-table-container {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-base);
+  overflow: hidden;
+}
+
+.adaptive-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adaptive-table thead {
+  background-color: var(--color-background);
+}
+
+.adaptive-table th,
+.adaptive-table td {
+  padding: var(--spacing-base);
+  text-align: left;
+  border-bottom: 0.0625rem solid var(--color-border);
+}
+
+.adaptive-table th {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.adaptive-table td {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+/* Адаптивные таблицы для мобильных */
+@media screen and (max-width: 48rem) {
+  .adaptive-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .adaptive-table {
+    min-width: 32rem;
+  }
+  
+  .adaptive-table th,
+  .adaptive-table td {
+    padding: var(--spacing-sm) var(--spacing-base);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* ==============================================
+   АДАПТИВНЫЙ КАЛЕНДАРЬ
+   ============================================== */
+
+.adaptive-calendar {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-base);
+  overflow: hidden;
+}
+
+.adaptive-calendar-grid {
+  display: grid;
+  grid-template-columns: var(--calendar-time-width) repeat(var(--masters-count, 1), 1fr);
+  gap: var(--calendar-gap);
+  background-color: var(--color-border);
+}
+
+.adaptive-calendar-cell {
+  background-color: var(--color-surface);
+  min-height: var(--calendar-cell-height);
+  padding: var(--spacing-xs);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.adaptive-calendar-cell:hover {
+  background-color: var(--color-background);
+}
+
+.adaptive-calendar-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-background);
+}
+
+.adaptive-calendar-appointment {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Мобильная адаптация календаря */
+@media screen and (max-width: 48rem) {
+  .adaptive-calendar {
+    margin: 0 calc(-1 * var(--spacing-sm));
+  }
+  
+  .adaptive-calendar-grid {
+    grid-template-columns: var(--calendar-time-width) repeat(var(--masters-count, 1), 1fr);
+    font-size: var(--font-size-xs);
+  }
+  
+  .adaptive-calendar-cell {
+    min-height: calc(var(--calendar-cell-height) * 0.8);
+  }
+}
+
+/* ==============================================
+   АДАПТИВНЫЕ МОДАЛЬНЫЕ ОКНА
+   ============================================== */
+
+.adaptive-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--spacing-base);
+}
+
+.adaptive-modal-content {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  max-width: 32rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.adaptive-modal-header {
+  padding: var(--spacing-lg);
+  border-bottom: 0.0625rem solid var(--color-border);
+}
+
+.adaptive-modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.adaptive-modal-body {
+  padding: var(--spacing-lg);
+}
+
+.adaptive-modal-footer {
+  padding: var(--spacing-lg);
+  border-top: 0.0625rem solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-base);
+}
+
+/* Мобильная адаптация модальных окон */
+@media screen and (max-width: 48rem) {
+  .adaptive-modal {
+    padding: var(--spacing-sm);
+  }
+  
+  .adaptive-modal-content {
+    max-height: 95vh;
+  }
+  
+  .adaptive-modal-footer {
+    flex-direction: column;
+  }
+}
+
+/* ==============================================
+   АДАПТИВНАЯ ТИПОГРАФИКА
+   ============================================== */
+
+.adaptive-heading-1 {
+  font-size: var(--font-size-4xl);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+.adaptive-heading-2 {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-base) 0;
+}
+
+.adaptive-heading-3 {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-base) 0;
+}
+
+.adaptive-heading-4 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.adaptive-text-body {
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-base) 0;
+}
+
+.adaptive-text-small {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.adaptive-text-xs {
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+/* ==============================================
+   АДАПТИВНЫЕ УТИЛИТЫ
+   ============================================== */
+
+/* Скрытие элементов на разных устройствах */
+.hide-mobile {
+  display: block;
+}
+
+.hide-tablet {
+  display: block;
+}
+
+.hide-desktop {
+  display: block;
+}
+
+.show-mobile {
+  display: none;
+}
+
+.show-tablet {
+  display: none;
+}
+
+.show-desktop {
+  display: none;
+}
+
+@media screen and (max-width: 48rem) {
+  .hide-mobile {
+    display: none;
+  }
+  
+  .show-mobile {
+    display: block;
+  }
+}
+
+@media screen and (min-width: 48rem) and (max-width: 64rem) {
+  .hide-tablet {
+    display: none;
+  }
+  
+  .show-tablet {
+    display: block;
+  }
+}
+
+@media screen and (min-width: 64rem) {
+  .hide-desktop {
+    display: none;
+  }
+  
+  .show-desktop {
+    display: block;
+  }
+}
+
+/* Адаптивные отступы */
+.adaptive-mt-sm { margin-top: var(--spacing-sm); }
+.adaptive-mt-base { margin-top: var(--spacing-base); }
+.adaptive-mt-lg { margin-top: var(--spacing-lg); }
+.adaptive-mt-xl { margin-top: var(--spacing-xl); }
+
+.adaptive-mb-sm { margin-bottom: var(--spacing-sm); }
+.adaptive-mb-base { margin-bottom: var(--spacing-base); }
+.adaptive-mb-lg { margin-bottom: var(--spacing-lg); }
+.adaptive-mb-xl { margin-bottom: var(--spacing-xl); }
+
+.adaptive-p-sm { padding: var(--spacing-sm); }
+.adaptive-p-base { padding: var(--spacing-base); }
+.adaptive-p-lg { padding: var(--spacing-lg); }
+.adaptive-p-xl { padding: var(--spacing-xl); }
+
+/* ==============================================
+   LEGACY СТИЛИ (для совместимости)
+   ============================================== */
+
+/* Поддержка старых стилей для мобильных */
+@media (max-width: 48rem) {
+  body {
+    overflow-x: hidden;
+  }
+  
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .card-mobile {
+    margin: var(--spacing-sm);
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-base);
+  }
+  
+  .grid-mobile {
+    grid-template-columns: 1fr !important;
+    gap: var(--spacing-base);
+  }
+  
+  .btn-mobile {
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
+    padding: var(--spacing-base);
+    font-size: var(--font-size-base);
+  }
+  
+  .form-mobile {
+    padding: var(--spacing-base);
+  }
+  
+  .form-mobile .form-group {
+    margin-bottom: var(--spacing-base);
+  }
+  
+  .form-mobile input,
+  .form-mobile select,
+  .form-mobile textarea {
+    width: 100%;
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-base);
+    border-radius: var(--radius-base);
+    border: 0.0625rem solid var(--color-border);
+  }
+}
+
+/* Скрытие скроллбара в мобильном меню */
+.mobile-menu-content {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mobile-menu-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* Анимации для мобильного меню */
+.mobile-menu-overlay {
+  backdrop-filter: blur(0.25rem);
+}
+
+.mobile-menu-panel {
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+/* Z-index для мобильного меню */
+.z-\[100\] {
+  z-index: 100 !important;
+}
+
+.z-\[101\] {
+  z-index: 101 !important;
+}
+
+/* Блокировка взаимодействий с задним фоном */
+body.menu-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+body.menu-open * {
+  pointer-events: none;
+}
+
+body.menu-open nav,
+body.menu-open nav * {
+  pointer-events: auto;
+}
+
+/* Убираем hover эффекты когда меню открыто */
+body.menu-open *:not(nav):not(nav *):hover {
+  background-color: initial !important;
+  color: initial !important;
+  border-color: initial !important;
+  transform: initial !important;
+  box-shadow: initial !important;
+}
+
+/* Адаптивность для календаря */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: var(--calendar-time-width) repeat(var(--masters-count, 1), 1fr);
+  gap: var(--calendar-gap);
+  background: var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.time-slot {
+  background: var(--color-surface);
+  padding: var(--spacing-xs);
+  border-bottom: 0.0625rem solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 1;
+}
+
+.calendar-cell {
+  background: var(--color-surface);
+  border-bottom: 0.0625rem solid var(--color-border);
+  position: relative;
+  min-height: var(--calendar-cell-height);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.calendar-cell:hover {
+  background: var(--color-background);
+}
+
+.calendar-cell.not-working {
+  background: var(--color-background);
+  opacity: 0.5;
+}
+
+.appointment {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.appointment-content {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  font-size: var(--font-size-xs);
+  color: white;
+}
+
+.add-slot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.calendar-cell:hover .add-slot {
+  opacity: 1;
+}
+
+/* Исправления для аналитических карточек */
+.analytics-metric-card,
+.bg-gradient-to-r {
+  color: var(--color-text) !important;
+}
+
+.analytics-metric-card h3,
+.bg-gradient-to-r h3 {
+  color: rgba(31, 41, 55, 0.8) !important;
+}
+
+.analytics-metric-card p,
+.bg-gradient-to-r p {
+  color: var(--color-text) !important;
+}
+
+.analytics-metric-card *,
+.bg-gradient-to-r * {
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Цвета для различных состояний */
+.text-white {
+  color: white !important;
+}
+
+.text-blue-100 {
+  color: rgb(219, 234, 254) !important;
+}
+
+.text-green-100 {
+  color: rgb(220, 252, 231) !important;
+}
+
+.text-purple-100 {
+  color: rgb(243, 232, 255) !important;
+}
+
+.text-orange-100 {
+  color: rgb(254, 237, 218) !important;
+}
+
+/* Улучшения для touch устройств */
+@media (hover: none) and (pointer: coarse) {
+  .appointment-card-mobile,
+  .master-section {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  button, 
+  a {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+/* ==============================================
+   ДОПОЛНИТЕЛЬНЫЕ АДАПТИВНЫЕ СТИЛИ
+   ============================================== */
+
+/* Адаптивная типографика для мобильных */
+@media screen and (max-width: 48rem) {
+  .text-mobile-lg {
+    font-size: var(--font-size-lg);
+    line-height: 1.75;
+  }
+  
+  .text-mobile-base {
+    font-size: var(--font-size-base);
+    line-height: 1.5;
+  }
+  
+  .text-mobile-sm {
+    font-size: var(--font-size-sm);
+    line-height: 1.25;
+  }
+  
+  .text-mobile-xs {
+    font-size: var(--font-size-xs);
+    line-height: 1;
+  }
+}
+
+/* Дополнительные утилиты для карточек */
+.adaptive-card-min-height {
+  min-height: 20rem;
+}
+
+@media screen and (max-width: 48rem) {
+  .adaptive-card-min-height {
+    min-height: auto;
+  }
+}
+
+/* Утилита для карточек с одинаковой высотой */
+.adaptive-cards-equal-height {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--grid-gap);
+  align-items: stretch;
+}
+
+.adaptive-cards-equal-height .adaptive-card {
+  height: 100%;
+}
+
+/* Улучшенные стили для content и footer */
+.adaptive-card .card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.adaptive-card .card-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: var(--spacing-base);
+}
+
+/* Для равномерного заполнения пространства в карточке */
+.adaptive-card .flex-grow {
+  flex-grow: 1;
+}
+
+/* Специальные стили для dashboard карточек */
+.dashboard-info-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--grid-gap);
+  align-items: stretch;
+}
+
+@media screen and (min-width: 64rem) {
+  .dashboard-info-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dashboard-info-cards .adaptive-card {
+  min-height: 25rem;
+}
+
+@media screen and (max-width: 48rem) {
+  .dashboard-info-cards .adaptive-card {
+    min-height: auto;
+  }
+}

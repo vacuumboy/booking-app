@@ -1,0 +1,34 @@
+# Защита скриптов очистки кеша
+# Переименуйте этот файл в .htaccess и поместите в корень сайта
+
+# Запрещаем доступ к скриптам очистки кеша
+<Files "clear_cache.php">
+    Require all denied
+</Files>
+
+<Files "quick_clear.php">
+    Require all denied
+</Files>
+
+<Files "auto_clear.php">
+    Require all denied
+</Files>
+
+# Или разрешаем доступ только с определенных IP
+# Замените YOUR_IP на ваш IP адрес
+<Files "quick_clear.php">
+    Require ip YOUR_IP
+</Files>
+
+# Или защищаем паролем
+<Files "clear_cache.php">
+    AuthType Basic
+    AuthName "Cache Clear Area"
+    AuthUserFile /path/to/.htpasswd
+    Require valid-user
+</Files>
+
+# Альтернативный вариант - полный запрет доступа ко всем PHP файлам очистки
+<FilesMatch "^(clear_cache|quick_clear|auto_clear)\.php$">
+    Require all denied
+</FilesMatch> 
