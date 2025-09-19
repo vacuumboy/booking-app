@@ -24,3 +24,8 @@ Homestead.yaml
 npm-debug.log
 Thumbs.db
 yarn-error.log
+
+# Memory Bank
+memory-bank/
+memory_bank/
+cursor-memory-bank-main/
