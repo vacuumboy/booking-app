@@ -1,0 +1,45 @@
+name: Laptop Watcher
+
+on:
+  schedule:
+    # Каждые 3 часа (UTC). GitHub может запускать с задержкой до ~15 мин.
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: laptop-watcher
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: laptop-watcher/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore listings database
+        uses: actions/cache@v4
+        with:
+          path: laptop-watcher/data/listings.db
+          key: laptop-watcher-listings-${{ github.run_id }}
+          restore-keys: |
+            laptop-watcher-listings-
+
+      - name: Prepare config
+        run: cp config.example.yaml config.yaml
+
+      - name: Run watcher
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python watcher.py --once
