@@ -35,7 +35,26 @@ python watcher.py --once --dry-run
 python watcher.py --once
 ```
 
-## Автозапуск каждые 3 часа (cron)
+## Автозапуск на GitHub (рекомендуется)
+
+Скрипт уже настроен в `.github/workflows/laptop-watcher.yml` — проверка **каждые 3 часа**.
+
+### Один раз настроить секреты
+
+1. Открой репозиторий на GitHub → **Settings** → **Secrets and variables** → **Actions**
+2. **New repository secret**:
+   - `TELEGRAM_BOT_TOKEN` — токен от @BotFather
+   - `TELEGRAM_CHAT_ID` — твой id (например `830418096`)
+
+### Проверить вручную
+
+**Actions** → **Laptop Watcher** → **Run workflow** → **Run workflow**
+
+Если секреты верные — при нахождении варианта придёт сообщение в Telegram.
+
+> База «уже видели» (`data/listings.db`) хранится в cache GitHub между запусками, чтобы не слать одно и то же каждый раз.
+
+## Автозапуск на своём ПК (cron)
 
 ```bash
 crontab -e
