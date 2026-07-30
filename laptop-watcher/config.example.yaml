@@ -1,0 +1,59 @@
+# Скопируй в config.yaml и подправь под себя
+
+check_interval_hours: 3
+
+filters:
+  max_price_eur: 900
+  # Уведомлять, если цена упала ниже прошлой (даже если уже видели)
+  notify_on_price_drop: true
+  min_refresh_hz: 120
+  min_screen_inch: 14
+  max_screen_inch: 15.6
+  max_weight_kg: 1.55
+  require_windows: true
+
+  exclude_brands:
+    - lenovo
+    - dell
+
+  exclude_keywords:
+    - gaming
+    - legion
+    - rog
+    - tuf
+    - omen
+    - victus
+    - nitro
+    - cyborg
+    - raider
+    - thinkpad
+    - ideapad
+    - yoga
+    - spectre
+    - elitebook
+    - proart
+    - zephyrus
+    - rtx
+    - geforce
+
+  # Если в названии есть 120 Hz / 120Hz — считаем подходящим по частоте
+  refresh_keywords:
+    - "120 hz"
+    - "120hz"
+    - "120 гц"
+
+sources:
+  euronics:
+    enabled: true
+    list_url: "https://www.euronics.lv/it/portativie-datori/klepjdatori"
+
+  # Dateks часто режет ботов (Cloudflare). Добавь сюда конкретные openbox-ссылки вручную.
+  dateks_urls:
+    enabled: true
+    urls:
+      - "https://www.dateks.lv/cenas/portativie-datori/1409772-asus-vivobook-s-14-oled-m5406wa-neutral-black-14-3k-oled-120hz-ryzen-ai-9-365-24gb-1tb-ssd-windows-11-home-openbox"
+      - "https://www.dateks.lv/cenas/portativie-datori/1207471-hewlett-packard-pavilion-plus-14-ultra-5-125h-14-2-8k-oled-120hz-16gb-1tb-win11home-srebrny"
+
+  tet:
+    enabled: false
+    # Tet грузится тяжело; включим позже если нужно
