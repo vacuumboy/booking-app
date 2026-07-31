@@ -19,6 +19,7 @@ from storage import ListingRecord, ListingStore
 
 
 ROOT = Path(__file__).resolve().parent
+_SCAN_LOCK = threading.Lock()
 
 
 def load_config(path: Path) -> dict:
@@ -73,6 +74,18 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
 
 
 def run_once(config_path: Path, dry_run: bool = False) -> str:
+    if not _SCAN_LOCK.acquire(blocking=False):
+        msg = "⏳ Прогон уже идёт — новый не запускаю (чтобы не висеть на Playwright)"
+        print(msg, flush=True)
+        return msg
+
+    try:
+        return _run_once_unlocked(config_path, dry_run=dry_run)
+    finally:
+        _SCAN_LOCK.release()
+
+
+def _run_once_unlocked(config_path: Path, dry_run: bool = False) -> str:
     load_dotenv(ROOT / ".env")
     config = load_config(config_path)
     filter_cfg = build_filter_config(config)
