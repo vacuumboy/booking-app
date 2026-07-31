@@ -34,12 +34,13 @@ class TelegramBot:
         self._awaiting: dict[str, str] = {}  # chat_id -> field name
 
     def run_forever(self) -> None:
+        self._bootstrap_telegram()
         self._send(
             self.allowed_chat_id,
-            "🤖 Бот монитора запущен.\nНажми кнопки ниже или /start",
+            "🤖 Бот монитора запущен.\nЖми «Старт» или «Прогон».",
             reply_markup=self._main_keyboard(),
         )
-        print("Telegram bot: polling…")
+        print("Telegram bot: polling…", flush=True)
         while True:
             try:
                 updates = self._get_updates()
@@ -47,11 +48,30 @@ class TelegramBot:
                     self.offset = update["update_id"] + 1
                     self._handle_update(update)
             except Exception as exc:  # noqa: BLE001
-                print(f"⚠ bot poll error: {exc}")
-                time.sleep(3)
+                print(f"⚠ bot poll error: {exc}", flush=True)
+                time.sleep(2)
+
+    def _bootstrap_telegram(self) -> None:
+        """Drop webhook / stale queue so /start and buttons work reliably."""
+        try:
+            with httpx.Client(timeout=30) as client:
+                client.get(f"{self.api}/deleteWebhook", params={"drop_pending_updates": True})
+                # Seed offset to "latest" so we don't replay ancient updates
+                response = client.get(
+                    f"{self.api}/getUpdates",
+                    params={"timeout": 0, "offset": -1},
+                )
+                payload = response.json()
+                results = payload.get("result") or []
+                if results:
+                    self.offset = int(results[-1]["update_id"]) + 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠ bot bootstrap: {exc}", flush=True)
 
     def _get_updates(self) -> list[dict]:
-        with httpx.Client(timeout=60) as client:
+        # Long-poll must outlive Telegram's timeout param
+        timeout = httpx.Timeout(connect=15.0, read=70.0, write=30.0, pool=30.0)
+        with httpx.Client(timeout=timeout) as client:
             response = client.get(
                 f"{self.api}/getUpdates",
                 params={
@@ -84,20 +104,31 @@ class TelegramBot:
             self._apply_setting(chat_id, awaiting, text)
             return
 
-        if text in {"/start", "/menu", "меню", "Меню"}:
+        cmd = text.split("@", 1)[0].strip().lower()
+        if (
+            cmd.startswith("/start")
+            or cmd in {"/menu", "меню", "старт", "start"}
+            or text in {"▶️ Старт", "Старт", "Меню"}
+        ):
             self._send(
                 chat_id,
-                "Меню монитора ноутбуков:",
+                "Меню монитора ноутбуков:\n"
+                "• Прогон — сканировать магазины сейчас\n"
+                "• Настройки — цена / Hz / диагональ\n"
+                "• Статус — что включено",
                 reply_markup=self._main_keyboard(),
             )
             return
-        if text in {"/scan", "🔍 Прогон", "Прогон"}:
+        if (
+            cmd in {"/scan", "прогон"}
+            or text in {"🔍 Прогон", "Прогон", "▶️ Прогон"}
+        ):
             self._run_scan(chat_id)
             return
-        if text in {"/settings", "⚙️ Настройки", "Настройки"}:
+        if cmd in {"/settings", "настройки"} or text in {"⚙️ Настройки", "Настройки"}:
             self._send_settings(chat_id)
             return
-        if text in {"/status", "📊 Статус", "Статус"}:
+        if cmd in {"/status", "статус"} or text in {"📊 Статус", "Статус"}:
             self._send_status(chat_id)
             return
         if text.startswith("/set "):
@@ -111,7 +142,7 @@ class TelegramBot:
 
         self._send(
             chat_id,
-            "Не понял. Жми кнопки или /start",
+            "Не понял. Жми «Старт» или кнопки ниже.",
             reply_markup=self._main_keyboard(),
         )
 
@@ -128,8 +159,14 @@ class TelegramBot:
             self._run_scan(chat_id)
         elif data == "settings":
             self._send_settings(chat_id)
-        elif data == "status":
-            self._send_status(chat_id)
+        elif data in {"status", "menu"}:
+            self._send(
+                chat_id,
+                "Меню монитора ноутбуков:",
+                reply_markup=self._main_keyboard(),
+            )
+            if data == "status":
+                self._send_status(chat_id)
         elif data.startswith("edit:"):
             field = data.split(":", 1)[1]
             self._awaiting[chat_id] = field
@@ -191,7 +228,7 @@ class TelegramBot:
                     {"text": "Диаг. min", "callback_data": "edit:min_screen_inch"},
                     {"text": "Диаг. max", "callback_data": "edit:max_screen_inch"},
                 ],
-                [{"text": "🔙 Меню", "callback_data": "status"}],
+                [{"text": "🔙 Меню", "callback_data": "menu"}],
             ]
         }
         self._send(chat_id, text, reply_markup=keyboard)
@@ -272,10 +309,11 @@ class TelegramBot:
     def _main_keyboard(self) -> dict:
         return {
             "keyboard": [
-                [{"text": "🔍 Прогон"}, {"text": "⚙️ Настройки"}],
-                [{"text": "📊 Статус"}],
+                [{"text": "▶️ Старт"}, {"text": "🔍 Прогон"}],
+                [{"text": "⚙️ Настройки"}, {"text": "📊 Статус"}],
             ],
             "resize_keyboard": True,
+            "is_persistent": True,
         }
 
     def _send(
