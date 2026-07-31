@@ -307,16 +307,13 @@ def scan_store(
     exclude_keywords: list[str],
 ) -> tuple[list[RawListing], str | None]:
     store = STORES[store_id]
-    # Browser enrich is slow — keep a smaller budget for CF-blocked shops.
-    if store.use_browser:
-        max_enrich = min(max_enrich, 25)
-
     listings: list[RawListing] = []
     with httpx.Client(headers=DEFAULT_HEADERS, timeout=45, follow_redirects=True) as client:
         pairs, error = collect_catalog_listings(store, client, max_pages)
         if error:
             return [], error
 
+        print(f"  → {store.name}: ссылок в каталоге {len(pairs)}")
         enrich_budget = max_enrich
         queued: list[tuple[int, str, str]] = []
         for url, title in pairs:
@@ -325,7 +322,14 @@ def scan_store(
                 continue
             queued.append((_enrich_priority(seed), url, seed))
         queued.sort(key=lambda item: item[0])
-        queued = queued[:enrich_budget]
+        if enrich_budget < len(queued):
+            print(
+                f"  → {store.name}: после фильтров {len(queued)}, "
+                f"открываю {enrich_budget} (лимит)"
+            )
+            queued = queued[:enrich_budget]
+        else:
+            print(f"  → {store.name}: открываю все {len(queued)} после фильтров")
 
         browser_needed: list[tuple[str, str]] = []
         for _, url, title in queued:
