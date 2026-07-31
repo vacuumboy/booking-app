@@ -513,6 +513,9 @@ def _vote_hz(snippets: list[str], codes: list[str]) -> tuple[int, str] | None:
 
     for snip in snippets:
         s = snip.lower()
+        # Skip obvious non-laptop monitor chatter without a model code
+        if "monitor refresh" in s and (not primary or primary not in s):
+            continue
         for match in re.finditer(r"(\d{2,3})\s*hz", s):
             hz = int(match.group(1))
             if hz not in KNOWN_HZ:
@@ -521,13 +524,17 @@ def _vote_hz(snippets: list[str], codes: list[str]) -> tuple[int, str] | None:
             end = min(len(s), match.end() + 100)
             window = s[start:end]
             weight = 1
-            if primary and primary in s:
+            code_in_snip = bool(primary and primary in s)
+            if code_in_snip:
                 weight += 5
             elif family and len(family) >= 5 and family in window:
                 weight += 2
             elif any(code in s for code in codes_l[1:]):
                 weight += 3
-            # Prefer explicit "refresh rate: N Hz"
+                code_in_snip = True
+            # High gaming rates need the model code in the same snippet
+            if hz >= 144 and not code_in_snip:
+                continue
             if re.search(r"refresh(?:\s*rate)?\s*[:=]?\s*" + str(hz), s):
                 weight += 2
             scores[hz] += weight
@@ -537,14 +544,15 @@ def _vote_hz(snippets: list[str], codes: list[str]) -> tuple[int, str] | None:
     if not scores:
         return None
 
-    # If we have a strong MPN-linked vote, use it; else majority
-    ranked = sorted(scores.items(), key=lambda kv: (kv[1], kv[0] in {60, 120, 144}), reverse=True)
+    ranked = sorted(
+        scores.items(),
+        key=lambda kv: (kv[1], kv[0] in {60, 120, 144}),
+        reverse=True,
+    )
     best_hz, best_score = ranked[0]
-    # Guard: if top is 120 but a 60 has almost equal score AND primary code present with 60, prefer 60
     if primary:
         for hz, score in ranked:
             if hz == 60 and score >= best_score - 2:
-                # check evidence mentions primary
                 ev = evidence.get(60, "").lower()
                 if primary in ev:
                     return 60, evidence.get(60, "")
