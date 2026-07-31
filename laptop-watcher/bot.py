@@ -159,14 +159,14 @@ class TelegramBot:
             self._run_scan(chat_id)
         elif data == "settings":
             self._send_settings(chat_id)
-        elif data in {"status", "menu"}:
+        elif data == "menu":
             self._send(
                 chat_id,
                 "Меню монитора ноутбуков:",
                 reply_markup=self._main_keyboard(),
             )
-            if data == "status":
-                self._send_status(chat_id)
+        elif data == "status":
+            self._send_status(chat_id)
         elif data.startswith("edit:"):
             field = data.split(":", 1)[1]
             self._awaiting[chat_id] = field
