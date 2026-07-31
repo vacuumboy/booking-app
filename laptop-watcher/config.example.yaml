@@ -9,6 +9,9 @@ scan:
   max_enrich_per_source: null
   request_delay_sec: 0.25
   notify_status: true
+  # Топ ближайших к фильтрам (цена + Hz + диагональ) в Telegram после прогона
+  closest_top: 5
+  notify_closest: true
 
 filters:
   max_price_eur: 900

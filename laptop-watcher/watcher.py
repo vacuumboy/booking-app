@@ -11,8 +11,8 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-from filters import Candidate, FilterConfig, matches
-from notify import fetch_chat_ids, format_match, format_status, send_telegram
+from filters import Candidate, FilterConfig, matches, rank_closest
+from notify import fetch_chat_ids, format_closest, format_match, format_status, send_telegram
 from sources.collector import collect_raw_listings
 from specs_db import SpecsDB
 from storage import ListingRecord, ListingStore
@@ -130,6 +130,16 @@ def _run_once_unlocked(config_path: Path, dry_run: bool = False) -> str:
         send_telegram(message)
         notified += 1
 
+    closest_top = int(config.get("scan", {}).get("closest_top", 5))
+    closest = rank_closest(candidates, filter_cfg, top=closest_top)
+    closest_msg = format_closest(
+        closest,
+        max_price=filter_cfg.max_price_eur,
+        min_hz=filter_cfg.min_refresh_hz,
+    )
+    print(closest_msg)
+    print("---")
+
     summary = (
         f"Готово. Карточек: {report.scanned}, подошло: {matched}, "
         f"уведомлений: {notified}\n"
@@ -140,20 +150,24 @@ def _run_once_unlocked(config_path: Path, dry_run: bool = False) -> str:
 
     if (
         not dry_run
-        and config.get("scan", {}).get("notify_status", False)
         and os.environ.get("TELEGRAM_BOT_TOKEN")
         and os.environ.get("TELEGRAM_CHAT_ID")
     ):
+        notify_status = bool(config.get("scan", {}).get("notify_status", False))
+        notify_closest = bool(config.get("scan", {}).get("notify_closest", True))
         try:
-            send_telegram(
-                format_status(
-                    scanned=report.scanned,
-                    matched=matched,
-                    notified=notified,
-                    store_ok=report.ok_stores,
-                    store_fail=report.fail_stores,
+            if notify_closest and closest_top > 0:
+                send_telegram(closest_msg, disable_preview=True)
+            if notify_status:
+                send_telegram(
+                    format_status(
+                        scanned=report.scanned,
+                        matched=matched,
+                        notified=notified,
+                        store_ok=report.ok_stores,
+                        store_fail=report.fail_stores,
+                    )
                 )
-            )
         except Exception as exc:  # noqa: BLE001
             print(f"⚠ статус в Telegram не отправился: {exc}")
 
