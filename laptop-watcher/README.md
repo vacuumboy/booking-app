@@ -33,7 +33,7 @@ Playwright обходит Cloudflare для Dateks / AiO / Baltic Data. M79 от
    - Запусти: `python watcher.py --get-chat-id` — скопируй число в `.env` как `TELEGRAM_CHAT_ID`
    - Либо открой **отдельный** чат [@userinfobot](https://t.me/userinfobot) через поиск Telegram (не пиши `@userinfobot` в чат со своим ботом)
 
-3. **Фильтры** — отредактируй `config.yaml` (цена, 120 Hz, вес, бренды)
+3. **Фильтры** — отредактируй `config.yaml` (цена, 120 Hz, бренды)
 
 ## Установка
 

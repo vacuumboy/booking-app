@@ -16,7 +16,7 @@ filters:
   min_refresh_hz: 120
   min_screen_inch: 14
   max_screen_inch: 15.6
-  max_weight_kg: 1.55
+  # max_weight_kg: 1.55   # убрано — вес не фильтруем
   require_windows: true
 
   exclude_brands:
