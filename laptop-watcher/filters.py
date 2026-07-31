@@ -94,9 +94,14 @@ def score_closeness(candidate: Candidate, cfg: FilterConfig) -> Closeness | None
     score = 0.0
 
     # --- price (budget ceiling) ---
+    # Tiny "from 1€/mo" leasing teasers shouldn't win the ranking.
+    min_plausible = 250.0
     if candidate.price is None:
         score += 35.0
         gaps.append("цена неизвестна")
+    elif candidate.price < min_plausible:
+        score += 70.0
+        gaps.append(f"цена {candidate.price:.0f}€ похожа на лизинг/ошибку")
     elif candidate.price <= cfg.max_price_eur:
         # Meets budget; tiny nudge so cheaper ranks above pricier equals.
         score += (candidate.price / cfg.max_price_eur) * 2.0
