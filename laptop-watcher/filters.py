@@ -31,6 +31,7 @@ class Candidate:
     text_blob: str = ""
     specs_known: bool = False
     is_gaming_known: bool | None = None
+    specs_refresh_hz: int | None = None
 
 
 @dataclass
@@ -56,15 +57,22 @@ def matches(candidate: Candidate, cfg: FilterConfig) -> tuple[bool, str]:
     if candidate.price is not None and candidate.price > cfg.max_price_eur:
         return False, f"цена {candidate.price:.0f}€ > лимита {cfg.max_price_eur:.0f}€"
 
-    has_refresh = _has_refresh(text, cfg)
-    if not has_refresh:
+    listing_only = candidate.text_blob
+    if "specs_db" in listing_only:
+        listing_only = listing_only.split("specs_db", 1)[0]
+    listing_hz = _extract_refresh_hz(f"{candidate.title} {listing_only}".lower(), cfg)
+    effective_hz = listing_hz if listing_hz is not None else candidate.specs_refresh_hz
+
+    if effective_hz is None or effective_hz < cfg.min_refresh_hz:
         policy = (cfg.unknown_refresh_policy or "reject").lower()
-        if policy == "accept":
+        if effective_hz is None and policy == "accept":
             pass
-        elif policy == "specs_only" and candidate.specs_known:
+        elif effective_hz is None and policy == "specs_only" and candidate.specs_known:
             return False, f"нет {cfg.min_refresh_hz} Hz в базе спеков"
-        else:
+        elif effective_hz is None:
             return False, f"нет {cfg.min_refresh_hz} Hz в данных"
+        else:
+            return False, f"{effective_hz} Hz < {cfg.min_refresh_hz} Hz"
 
     inches = _screen_inches(candidate)
     if inches is not None:
@@ -112,12 +120,33 @@ def score_closeness(candidate: Candidate, cfg: FilterConfig) -> Closeness | None
         gaps.append(f"цена {candidate.price:.0f}€ (+{over:.0f}€ над лимитом)")
 
     # --- refresh Hz ---
-    hz = _extract_refresh_hz(text, cfg)
+    listing_only = candidate.text_blob
+    if "specs_db" in listing_only:
+        listing_only = listing_only.split("specs_db", 1)[0]
+    listing_hz = _extract_refresh_hz(
+        f"{candidate.title} {listing_only}".lower(),
+        cfg,
+    )
+
+    if listing_hz is not None:
+        hz = listing_hz
+        hz_source = "карточка"
+    elif candidate.specs_refresh_hz is not None:
+        hz = candidate.specs_refresh_hz
+        hz_source = "база"
+    else:
+        hz = None
+        hz_source = ""
+
     if hz is not None and hz >= cfg.min_refresh_hz:
-        ok_bits.append(f"{hz} Hz")
+        label = f"{hz} Hz"
+        if hz_source:
+            label += f" ({hz_source})"
+        ok_bits.append(label)
     elif hz is not None:
         score += 45.0 + ((cfg.min_refresh_hz - hz) / cfg.min_refresh_hz) * 40.0
-        gaps.append(f"{hz} Hz < {cfg.min_refresh_hz} Hz")
+        src = f" ({hz_source})" if hz_source else ""
+        gaps.append(f"{hz} Hz{src} < {cfg.min_refresh_hz} Hz")
     else:
         score += 55.0
         gaps.append(f"нет {cfg.min_refresh_hz} Hz в данных")

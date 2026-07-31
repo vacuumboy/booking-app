@@ -54,7 +54,7 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
     items, report = collect_raw_listings(config)
     enriched_hits = 0
     for item in items:
-        blob, spec = specs.enrich_text(item.title, item.text_blob)
+        blob, spec = specs.enrich_text(item.title, item.text_blob, url=item.url)
         if spec is not None:
             enriched_hits += 1
         candidates.append(
@@ -67,6 +67,7 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
                 text_blob=blob,
                 specs_known=spec is not None,
                 is_gaming_known=spec.is_gaming if spec else None,
+                specs_refresh_hz=spec.refresh_hz if spec else None,
             )
         )
     print(f"База спеков: {specs.count()} кодов, совпадений в прогоне: {enriched_hits}")
