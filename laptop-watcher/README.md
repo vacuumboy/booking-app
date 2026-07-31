@@ -16,7 +16,8 @@
 | **Elkor** | nomaksa |
 | **Signe, Kursi, Bigbox, Baltic Data** | nomaksa |
 
-Часть сайтов блокирует обычный HTTP (Cloudflare). Для **Dateks**, **AiO.lv** и **220.lv** включён fallback через **Playwright** (headless Chrome) в GitHub Actions. Euronics и Tet обычно работают без браузера.
+**Сейчас реально сканируются:** Euronics, Tet, Dateks, AiO.lv, Baltic Data.  
+Playwright обходит Cloudflare для Dateks / AiO / Baltic Data. 220 / RD / 1a пока выключены (challenge не проходит).
 
 Включение/выключение — в `config.yaml → sources`.
 
@@ -51,6 +52,8 @@ cp config.example.yaml config.yaml
 python watcher.py --test-telegram
 python watcher.py --once --dry-run
 python watcher.py --once
+# или крутить постоянно:
+python watcher.py --loop
 ```
 
 ## Автозапуск на GitHub (рекомендуется)

@@ -29,6 +29,8 @@ class StoreDefinition:
     page_param: str = "page"  # tet uses p=
     uses_json_ld_list: bool = False
     use_browser: bool = False
+    # If set, page N uses this format: "{list_url}/{page}"
+    path_pagination: bool = False
 
 
 # Latvijas interneta veikali ar nomaksu / līzingu (pēc iespējas pilns saraksts).
@@ -170,10 +172,11 @@ STORES: dict[str, StoreDefinition] = {
         list_url="https://balticdata.lv/lv/portativie-datori",
         base_url="https://balticdata.lv",
         link_pattern=re.compile(
-            r'href="(/lv/portativie-datori/[^"]+)"',
+            r'href="((?:https://balticdata\.lv)?/lv/portativie-datori/portativais-dators-[^"?#]+)"',
             re.IGNORECASE,
         ),
-        page_param="page",
+        path_pagination=True,
+        use_browser=True,
     ),
 }
 
@@ -181,6 +184,8 @@ STORES: dict[str, StoreDefinition] = {
 def _page_url(store: StoreDefinition, page: int) -> str:
     if page <= 1:
         return store.list_url
+    if store.path_pagination:
+        return f"{store.list_url.rstrip('/')}/{page}"
     sep = "&" if "?" in store.list_url else "?"
     return f"{store.list_url}{sep}{store.page_param}={page}"
 
@@ -315,7 +320,8 @@ def scan_store(
                 seed_title=title,
             )
             if enriched is not None:
-                listings.append(enriched)
+                if _should_enrich(enriched.title, exclude_brands, exclude_keywords, url=url):
+                    listings.append(enriched)
                 time.sleep(request_delay)
                 continue
             if store.use_browser and browser_available():
@@ -337,6 +343,8 @@ def scan_store(
                 )
                 # Dateks иногда отдаёт каталог вместо карточки.
                 if item.title.lower() in {"portatīvie datori", "portativie datori", "laptops"}:
+                    continue
+                if not _should_enrich(item.title, exclude_brands, exclude_keywords, url=url):
                     continue
                 listings.append(item)
 
