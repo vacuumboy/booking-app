@@ -136,6 +136,8 @@ def _run_once_unlocked(config_path: Path, dry_run: bool = False) -> str:
         closest,
         max_price=filter_cfg.max_price_eur,
         min_hz=filter_cfg.min_refresh_hz,
+        min_inch=filter_cfg.min_screen_inch,
+        max_inch=filter_cfg.max_screen_inch,
     )
     print(closest_msg)
     print("---")

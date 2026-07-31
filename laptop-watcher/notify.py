@@ -94,7 +94,14 @@ def format_status(
     )
 
 
-def format_closest(ranked: list, *, max_price: float, min_hz: int) -> str:
+def format_closest(
+    ranked: list,
+    *,
+    max_price: float,
+    min_hz: int,
+    min_inch: float = 14.0,
+    max_inch: float = 15.6,
+) -> str:
     """Telegram digests for near-miss / best-fit ranked listings."""
     if not ranked:
         return (
@@ -104,7 +111,7 @@ def format_closest(ranked: list, *, max_price: float, min_hz: int) -> str:
 
     lines = [
         "🎯 Ближайшие к фильтрам",
-        f"(бюджет ≤{max_price:.0f}€, от {min_hz} Hz, 14–15.6\")",
+        f"(бюджет ≤{max_price:.0f}€, от {min_hz} Hz, {min_inch:g}–{max_inch:g}\")",
         "",
     ]
     for index, item in enumerate(ranked, start=1):
