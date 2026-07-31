@@ -56,7 +56,13 @@ def send_telegram(message: str) -> None:
         response.raise_for_status()
 
 
-def format_match(title: str, price: float | None, url: str, reason: str, store: str = "") -> str:
+def format_match(
+    title: str,
+    price: float | None,
+    url: str,
+    reason: str,
+    store: str = "",
+) -> str:
     price_line = f"💰 {price:.0f} €" if price is not None else "💰 цена неизвестна"
     store_line = f"🏪 {store}\n" if store else ""
     return (
@@ -66,4 +72,23 @@ def format_match(title: str, price: float | None, url: str, reason: str, store: 
         f"{price_line}\n"
         f"🔗 {url}\n\n"
         f"({reason})"
+    )
+
+
+def format_status(
+    scanned: int,
+    matched: int,
+    notified: int,
+    store_ok: list[str],
+    store_fail: list[str],
+) -> str:
+    ok = ", ".join(store_ok) if store_ok else "—"
+    fail = ", ".join(store_fail) if store_fail else "—"
+    return (
+        "✅ Laptop watcher: проверка завершена\n\n"
+        f"Проверено карточек: {scanned}\n"
+        f"Подошло: {matched}\n"
+        f"Уведомлений: {notified}\n\n"
+        f"ОК: {ok}\n"
+        f"Недоступны: {fail}"
     )

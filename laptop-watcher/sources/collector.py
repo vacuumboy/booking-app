@@ -1,23 +1,32 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass, field
 from typing import Any
 
 from sources.common import RawListing
 from sources.stores import STORES, scan_manual_urls, scan_store
 
 
-def collect_raw_listings(config: dict) -> list[RawListing]:
+@dataclass
+class ScanReport:
+    ok_stores: list[str] = field(default_factory=list)
+    fail_stores: list[str] = field(default_factory=list)
+    scanned: int = 0
+
+
+def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
     scan_cfg = config.get("scan", {})
-    max_pages = int(scan_cfg.get("max_pages_per_source", 3))
-    max_enrich = int(scan_cfg.get("max_enrich_per_source", 80))
-    request_delay = float(scan_cfg.get("request_delay_sec", 0.35))
+    max_pages = int(scan_cfg.get("max_pages_per_source", 2))
+    max_enrich = int(scan_cfg.get("max_enrich_per_source", 60))
+    request_delay = float(scan_cfg.get("request_delay_sec", 0.3))
 
     filters = config.get("filters", {})
     exclude_brands = list(filters.get("exclude_brands", []))
     exclude_keywords = list(filters.get("exclude_keywords", []))
 
     candidates: list[RawListing] = []
+    report = ScanReport()
     sources_cfg: dict[str, Any] = config.get("sources", {})
 
     for store_id, store in STORES.items():
@@ -36,8 +45,10 @@ def collect_raw_listings(config: dict) -> list[RawListing]:
         )
         if error:
             print(f"  ⚠ {store.name}: {error}")
+            report.fail_stores.append(store.name)
             continue
         print(f"  ✓ {store.name}: проверено карточек {len(items)}")
+        report.ok_stores.append(store.name)
         candidates.extend(items)
         time.sleep(0.2)
 
@@ -54,9 +65,10 @@ def collect_raw_listings(config: dict) -> list[RawListing]:
             )
             found = len(items)
             if found < len(urls):
-                print(f"  ⚠ Dateks: прочитано {found}/{len(urls)} ссылок")
+                print(f"  ⚠ Dateks manual: прочитано {found}/{len(urls)} ссылок")
             else:
-                print(f"  ✓ Dateks: {found} ссылок")
+                print(f"  ✓ Dateks manual: {found} ссылок")
             candidates.extend(items)
 
-    return candidates
+    report.scanned = len(candidates)
+    return candidates, report

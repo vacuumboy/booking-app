@@ -2,8 +2,8 @@ name: Laptop Watcher
 
 on:
   schedule:
-    # Каждые 3 часа (UTC). GitHub может запускать с задержкой до ~15 мин.
-    - cron: "0 */3 * * *"
+    # Каждые 2 часа (UTC). GitHub может запускать с задержкой.
+    - cron: "0 */2 * * *"
   workflow_dispatch:
 
 jobs:

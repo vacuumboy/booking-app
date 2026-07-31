@@ -4,13 +4,14 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
 
 from filters import Candidate, FilterConfig, matches
-from notify import fetch_chat_ids, format_match, send_telegram
+from notify import fetch_chat_ids, format_match, format_status, send_telegram
 from sources.collector import collect_raw_listings
 from storage import ListingRecord, ListingStore
 
@@ -39,10 +40,10 @@ def build_filter_config(raw: dict) -> FilterConfig:
     )
 
 
-def collect_candidates(config: dict) -> list[Candidate]:
+def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
     candidates: list[Candidate] = []
-
-    for item in collect_raw_listings(config):
+    items, report = collect_raw_listings(config)
+    for item in items:
         candidates.append(
             Candidate(
                 url=item.url,
@@ -53,8 +54,7 @@ def collect_candidates(config: dict) -> list[Candidate]:
                 text_blob=item.text_blob,
             )
         )
-
-    return candidates
+    return candidates, report
 
 
 def run_once(config_path: Path, dry_run: bool = False) -> int:
@@ -66,8 +66,9 @@ def run_once(config_path: Path, dry_run: bool = False) -> int:
     matched = 0
     notified = 0
 
-    for candidate in collect_candidates(config):
-        ok, reason = matches(candidate, filter_cfg)
+    candidates, report = collect_candidates(config)
+    for candidate in candidates:
+        ok, _reason = matches(candidate, filter_cfg)
         if not ok:
             continue
         matched += 1
@@ -102,7 +103,44 @@ def run_once(config_path: Path, dry_run: bool = False) -> int:
         notified += 1
 
     print(f"Готово. Подошло: {matched}, уведомлений: {notified}")
+
+    if (
+        not dry_run
+        and config.get("scan", {}).get("notify_status", False)
+        and os.environ.get("TELEGRAM_BOT_TOKEN")
+        and os.environ.get("TELEGRAM_CHAT_ID")
+    ):
+        try:
+            send_telegram(
+                format_status(
+                    scanned=report.scanned,
+                    matched=matched,
+                    notified=notified,
+                    store_ok=report.ok_stores,
+                    store_fail=report.fail_stores,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠ статус в Telegram не отправился: {exc}")
+
     return 0
+
+
+def run_loop(config_path: Path, dry_run: bool = False) -> int:
+    load_dotenv(ROOT / ".env")
+    config = load_config(config_path)
+    hours = float(config.get("check_interval_hours", 2))
+    seconds = max(60, int(hours * 3600))
+    print(f"Цикл каждые {hours} ч ({seconds} сек). Ctrl+C — стоп.")
+    while True:
+        started = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n===== Проверка {started} =====")
+        try:
+            run_once(config_path, dry_run=dry_run)
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠ ошибка прогона: {exc}")
+        print(f"Сплю {seconds} сек...")
+        time.sleep(seconds)
 
 
 def main() -> int:
@@ -116,6 +154,11 @@ def main() -> int:
         "--once",
         action="store_true",
         help="Один проход и выход",
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Крутить постоянно с паузой check_interval_hours",
     )
     parser.add_argument(
         "--dry-run",
@@ -170,10 +213,10 @@ def main() -> int:
         )
         return 1
 
-    if args.once or True:
-        return run_once(config_path, dry_run=args.dry_run)
+    if args.loop:
+        return run_loop(config_path, dry_run=args.dry_run)
 
-    return 0
+    return run_once(config_path, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
