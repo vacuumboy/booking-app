@@ -361,7 +361,20 @@ def scan_store(
             pages = fetch_pages_browser([url for url, _ in browser_needed])
             for url, title in browser_needed:
                 html = pages.get(url)
+                seed = title or _seed_from_url(url)
                 if not html:
+                    # Сайт режет карточки (403) — всё равно оставляем позицию из каталога
+                    if _should_enrich(seed, exclude_brands, exclude_keywords, url=url):
+                        listings.append(
+                            RawListing(
+                                url=url,
+                                title=seed,
+                                price=None,
+                                source=store.id,
+                                store=store.name,
+                                text_blob=seed,
+                            )
+                        )
                     continue
                 item = listing_from_html(
                     url,

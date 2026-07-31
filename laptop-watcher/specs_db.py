@@ -26,6 +26,7 @@ class ModelSpec:
         parts = [
             f"specs_db brand={self.brand}",
             f"model={self.model}",
+            f"matched_code={self.code}",
         ]
         if self.refresh_hz:
             parts.append(f"{self.refresh_hz} Hz")
@@ -66,10 +67,15 @@ class SpecsDB:
             )
 
     def load_seed(self) -> int:
+        """Reload seed from scratch so removed vague aliases disappear."""
         if not self.seed_path.exists():
             return 0
         with self.seed_path.open("r", encoding="utf-8") as handle:
             payload = yaml.safe_load(handle) or {}
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("DELETE FROM model_specs")
+
         count = 0
         for entry in payload.get("models", []):
             codes = entry.get("codes") or []
@@ -123,7 +129,11 @@ class SpecsDB:
             return int(row[0]) if row else 0
 
     def lookup(self, text: str) -> ModelSpec | None:
-        """Find best matching model by code/alias contained in text."""
+        """
+        Match only concrete MPN/SKU-style codes (must contain a digit),
+        preferring the longest hit. Vague marketing names are ignored.
+        Short gaming family markers (LOQ, TUF…) match as whole words only.
+        """
         hay = text.lower()
         with sqlite3.connect(self.db_path) as conn:
             rows = conn.execute(
@@ -146,29 +156,42 @@ class SpecsDB:
                 notes=row[7] or "",
             )
 
-        # 1) Longest alias/code as substring (prefer specific MPN over family names)
+        # 1) Longest digit-containing code with token boundaries
+        #    (so UX3405 does not steal UX3405CA-QL219W, and longest wins)
+        best: ModelSpec | None = None
+        best_len = 0
         for row in rows:
             code = row[0]
-            if len(code) < 4:
+            is_gaming = bool(row[6])
+            if not re.search(r"\d", code):
                 continue
-            if code in hay:
-                return to_spec(row)
+            if not _code_in_text(code, hay):
+                continue
+            if len(code) > best_len:
+                best = to_spec(row)
+                best_len = len(code)
+        if best is not None:
+            return best
 
-        # 2) Exact match of extracted MPN-like tokens against codes
-        tokens = {t.lower() for t in extract_product_codes(text)}
-        for row in rows:
-            if row[0] in tokens:
-                return to_spec(row)
-
-        # 3) Short family markers (LOQ, TUF…) as whole words only
+        # 2) Gaming family markers as whole words (no digits)
         for row in rows:
             code = row[0]
-            if len(code) < 4 and re.search(rf"\b{re.escape(code)}\b", hay):
+            if not bool(row[6]):
+                continue
+            if re.search(r"\d", code):
+                continue
+            if re.search(rf"\b{re.escape(code)}\b", hay, re.IGNORECASE):
                 return to_spec(row)
+
         return None
 
-    def enrich_text(self, title: str, text_blob: str) -> tuple[str, ModelSpec | None]:
-        combined = f"{title}\n{text_blob}"
+    def enrich_text(
+        self,
+        title: str,
+        text_blob: str,
+        url: str = "",
+    ) -> tuple[str, ModelSpec | None]:
+        combined = f"{title}\n{text_blob}\n{url}"
         spec = self.lookup(combined)
         if spec is None:
             return text_blob, None
@@ -176,9 +199,19 @@ class SpecsDB:
         return f"{text_blob} {extra}".strip(), spec
 
 
+def _code_in_text(code: str, hay: str) -> bool:
+    """Match code as its own token; '-' / '_' / '/' count as boundaries."""
+    code = code.lower()
+    if code not in hay:
+        return False
+    # Boundary: not preceded/followed by alphanumeric (hyphen is ok → full SKU wins longer)
+    pattern = rf"(?<![a-z0-9]){re.escape(code)}(?![a-z0-9])"
+    return re.search(pattern, hay) is not None
+
+
 def extract_product_codes(text: str) -> list[str]:
     patterns = [
-        r"\b([A-Z]{1,3}\d{2,4}[A-Z0-9-]{2,})\b",  # UX3405CA, M5406WA
+        r"\b([A-Z]{1,3}\d{2,4}[A-Z0-9-]{2,})\b",  # UX3405CA, M5406WA, UX3405CA-QL219W
         r"\b(\d{2}-[a-z]{2}\d{3,4}[a-z]{0,4})\b",  # 14-ew1000
         r"\b([A-Z0-9]{5,12})\b",  # 8A670EA / 82XQ013ALT
         r"MPN[:\s]+([A-Z0-9-]{4,})",

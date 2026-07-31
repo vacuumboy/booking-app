@@ -8,6 +8,7 @@ from sources.common import is_blocked
 
 # Stores that need (or benefit from) a real browser behind Cloudflare.
 BROWSER_STORE_IDS = frozenset({"220", "dateks", "aio", "balticdata"})
+MAX_CONSECUTIVE_BROWSER_FAILS = 8
 
 STEALTH_INIT = """
 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
@@ -102,6 +103,7 @@ def fetch_pages_browser(urls: list[str], wait_ms: int = 1500) -> dict[str, str]:
 
     results: dict[str, str] = {}
     total = len(urls)
+    consecutive_fails = 0
     try:
         with browser_page() as page:
             if page is None:
@@ -109,16 +111,26 @@ def fetch_pages_browser(urls: list[str], wait_ms: int = 1500) -> dict[str, str]:
             for index, url in enumerate(urls, start=1):
                 _log(f"  → browser карточка {index}/{total}: {url[:80]}")
                 try:
-                    response = page.goto(url, wait_until="domcontentloaded", timeout=25000)
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=20000)
                     status = response.status if response is not None else 0
                     page.wait_for_timeout(wait_ms)
                     html = page.content()
                     if response is not None and not is_blocked(html, status) and status < 400:
                         results[url] = html
+                        consecutive_fails = 0
                     else:
                         _log(f"  ⚠ browser skip status={status}")
+                        consecutive_fails += 1
                 except Exception as exc:  # noqa: BLE001
                     _log(f"  ⚠ browser: {exc}")
+                    consecutive_fails += 1
+
+                if consecutive_fails >= MAX_CONSECUTIVE_BROWSER_FAILS:
+                    _log(
+                        f"  ⚠ browser: {consecutive_fails} ошибок подряд — "
+                        f"бросаю оставшиеся {total - index} карточек"
+                    )
+                    break
     except Exception as exc:  # noqa: BLE001
         _log(f"  ⚠ browser session failed: {exc}")
         return results

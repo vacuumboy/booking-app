@@ -35,7 +35,7 @@ def fetch_chat_ids(token: str) -> list[dict]:
     return list(seen.values())
 
 
-def send_telegram(message: str) -> None:
+def send_telegram(message: str, *, disable_preview: bool = False) -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
@@ -50,7 +50,7 @@ def send_telegram(message: str) -> None:
             json={
                 "chat_id": chat_id,
                 "text": message,
-                "disable_web_page_preview": False,
+                "disable_web_page_preview": disable_preview,
             },
         )
         response.raise_for_status()
@@ -92,3 +92,44 @@ def format_status(
         f"ОК: {ok}\n"
         f"Недоступны: {fail}"
     )
+
+
+def format_closest(
+    ranked: list,
+    *,
+    max_price: float,
+    min_hz: int,
+    min_inch: float = 14.0,
+    max_inch: float = 15.6,
+) -> str:
+    """Telegram digests for near-miss / best-fit ranked listings."""
+    if not ranked:
+        return (
+            "🎯 Близких вариантов с подтверждённой частотой сейчас нет\n"
+            f"(ищу от {min_hz} Hz, {min_inch:g}–{max_inch:g}\", "
+            f"бюджет ≤{max_price:.0f}€, максимум небольшой переплат).\n"
+            "Без подтверждённых Hz и заведомо дорогие модели в топ не ставлю."
+        )
+
+    lines = [
+        "🎯 Ближайшие к фильтрам",
+        f"(с подтверждённой частотой · ≤{max_price:.0f}€ · "
+        f"от {min_hz} Hz · {min_inch:g}–{max_inch:g}\")",
+        "",
+    ]
+    for index, item in enumerate(ranked, start=1):
+        c = item.candidate
+        price = f"{c.price:.0f}€" if c.price is not None else "?€"
+        mark = "✅" if item.perfect else "≈"
+        title = c.title if len(c.title) <= 90 else c.title[:87] + "…"
+        ok = ", ".join(item.ok_bits) if item.ok_bits else "—"
+        gap = ", ".join(item.gaps) if item.gaps else "всё ок"
+        hz_bit = f"{item.hz} Hz" if item.hz is not None else "? Hz"
+        lines.append(f"{mark} {index}. {price} · {hz_bit} · {c.store}")
+        lines.append(title)
+        lines.append(f"   ✓ {ok}")
+        if not item.perfect:
+            lines.append(f"   ✗ {gap}")
+        lines.append(f"   🔗 {c.url}")
+        lines.append("")
+    return "\n".join(lines).rstrip()

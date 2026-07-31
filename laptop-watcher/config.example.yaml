@@ -9,9 +9,20 @@ scan:
   max_enrich_per_source: null
   request_delay_sec: 0.25
   notify_status: true
+  # Топ ближайших к фильтрам (цена + Hz + диагональ) в Telegram после прогона
+  closest_top: 5
+  notify_closest: true
+  # Насколько можно вылезти за max_price, чтобы ещё считаться «близко»
+  closest_max_over_eur: 250
+  # Если на карточке нет Hz, но остальное подходит — ищем частоту в интернете по MPN/названию
+  web_hz_lookup: true
+  max_web_hz_lookups: 80
+  web_hz_delay_sec: 1.0
 
 filters:
   max_price_eur: 900
+  # Ниже — считаем лизингом/ошибкой парсера (Tet «от 1€»)
+  min_price_eur: 250
   notify_on_price_drop: true
   min_refresh_hz: 120
   min_screen_inch: 14
@@ -63,7 +74,7 @@ sources:
   dateks:
     enabled: true
   aio:
-    enabled: true
+    enabled: false  # Playwright часто ловит 403 на карточках
   balticdata:
     enabled: true
   m79:
