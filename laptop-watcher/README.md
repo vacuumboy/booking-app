@@ -16,8 +16,9 @@
 | **Elkor** | nomaksa |
 | **Signe, Kursi, Bigbox, Baltic Data** | nomaksa |
 
-**Сейчас реально сканируются:** Euronics, Tet, Dateks, AiO.lv, Baltic Data.  
-Playwright обходит Cloudflare для Dateks / AiO / Baltic Data. 220 / RD / 1a пока выключены (challenge не проходит).
+**Сейчас реально сканируются:** Euronics, Tet, Dateks, AiO.lv, Baltic Data, **M79.lv**.  
+Playwright обходит Cloudflare для Dateks / AiO / Baltic Data. M79 открывается обычным HTTP.  
+220 / RD / 1a / Elkor / Bigbox пока выключены (Cloudflare / нет нормального каталога).
 
 Включение/выключение — в `config.yaml → sources`.
 

@@ -42,6 +42,8 @@ filters:
     - zephyrus
     - rtx
     - geforce
+    - loq
+    - macbook
 
   refresh_keywords:
     - "120 hz"
@@ -68,6 +70,10 @@ sources:
     enabled: true
     max_pages: 2
     max_enrich: 20
+  m79:
+    enabled: true
+    max_pages: 3
+    max_enrich: 40
 
   # Cloudflare challenge — Playwright пока не проходит (оставляем выкл.)
   "220":

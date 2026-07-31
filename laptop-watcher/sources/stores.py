@@ -31,6 +31,8 @@ class StoreDefinition:
     use_browser: bool = False
     # If set, page N uses this format: "{list_url}/{page}"
     path_pagination: bool = False
+    # Optional template for page>1, e.g. ".../{page}/f:stock-y"
+    page_url_template: str = ""
 
 
 # Latvijas interneta veikali ar nomaksu / līzingu (pēc iespējas pilns saraksts).
@@ -178,12 +180,27 @@ STORES: dict[str, StoreDefinition] = {
         path_pagination=True,
         use_browser=True,
     ),
+    "m79": StoreDefinition(
+        id="m79",
+        name="M79.lv",
+        installment_note="Nomaksa / līzings",
+        list_url="https://m79.lv/portativiedatori/portativiedatori/f:stock-y",
+        base_url="https://m79.lv",
+        link_pattern=re.compile(
+            # slug starts with a letter — отсекает /2, /3 и /f:stock-y
+            r'href="((?:https://m79\.lv)?/portativiedatori/portativiedatori/[a-z][^"#?]*)"',
+            re.IGNORECASE,
+        ),
+        page_url_template="https://m79.lv/portativiedatori/portativiedatori/{page}/f:stock-y",
+    ),
 }
 
 
 def _page_url(store: StoreDefinition, page: int) -> str:
     if page <= 1:
         return store.list_url
+    if store.page_url_template:
+        return store.page_url_template.format(page=page)
     if store.path_pagination:
         return f"{store.list_url.rstrip('/')}/{page}"
     sep = "&" if "?" in store.list_url else "?"
