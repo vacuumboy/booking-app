@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
+from typing import Callable
 
 import httpx
+
+
+ProgressCallback = Callable[[str], None]
 
 
 def fetch_chat_ids(token: str) -> list[dict]:
@@ -35,7 +41,7 @@ def fetch_chat_ids(token: str) -> list[dict]:
     return list(seen.values())
 
 
-def send_telegram(message: str) -> None:
+def send_telegram(message: str, *, disable_preview: bool = False) -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
@@ -50,10 +56,73 @@ def send_telegram(message: str) -> None:
             json={
                 "chat_id": chat_id,
                 "text": message,
-                "disable_web_page_preview": False,
+                "disable_web_page_preview": disable_preview,
             },
         )
         response.raise_for_status()
+
+
+def try_send_telegram(message: str) -> None:
+    """Best-effort Telegram send — never crash the scanner."""
+    try:
+        send_telegram(message, disable_preview=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ telegram: {exc}", flush=True)
+
+
+class Heartbeat:
+    """Send Telegram pulse every N checked laptops."""
+
+    def __init__(self, every: int = 5, enabled: bool = True) -> None:
+        self.every = max(1, every)
+        self.enabled = enabled
+        self.checked = 0
+        self.ok = 0
+        self.fail = 0
+        self.store = ""
+        self._lock = threading.Lock()
+        self.started = time.time()
+
+    def set_store(self, name: str) -> None:
+        with self._lock:
+            self.store = name
+        if self.enabled:
+            try_send_telegram(f"🏪 Начинаю: {name}")
+
+    def tick(self, *, success: bool = True, detail: str = "") -> None:
+        with self._lock:
+            self.checked += 1
+            if success:
+                self.ok += 1
+            else:
+                self.fail += 1
+            checked = self.checked
+            store = self.store
+            ok = self.ok
+            fail = self.fail
+            elapsed = int(time.time() - self.started)
+
+        if not self.enabled:
+            return
+        if checked % self.every != 0:
+            return
+
+        extra = f"\n{detail}" if detail else ""
+        try_send_telegram(
+            f"💓 Жив. Проверено {checked} ноутов "
+            f"(ок {ok}, ошибки {fail})\n"
+            f"Сейчас: {store or '—'}\n"
+            f"⏱ {elapsed // 60}м {elapsed % 60}с{extra}"
+        )
+
+    def alert(self, message: str) -> None:
+        """Always send (abort / store skip) — not gated by every-N."""
+        if self.enabled:
+            try_send_telegram(message)
+
+    def done_store(self, name: str, found: int) -> None:
+        if self.enabled:
+            try_send_telegram(f"✓ {name}: готово, карточек {found}")
 
 
 def format_match(

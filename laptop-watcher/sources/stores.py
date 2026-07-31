@@ -17,6 +17,9 @@ from sources.common import (
     listing_from_html,
 )
 
+# Optional heartbeat from notify.Heartbeat
+HeartbeatLike = object
+
 
 @dataclass(frozen=True)
 class StoreDefinition:
@@ -313,15 +316,19 @@ def scan_store(
     request_delay: float,
     exclude_brands: list[str],
     exclude_keywords: list[str],
+    heartbeat: HeartbeatLike | None = None,
 ) -> tuple[list[RawListing], str | None]:
     store = STORES[store_id]
+    if heartbeat is not None:
+        heartbeat.set_store(store.name)
+
     listings: list[RawListing] = []
     with httpx.Client(headers=DEFAULT_HEADERS, timeout=45, follow_redirects=True) as client:
         pairs, error = collect_catalog_listings(store, client, max_pages)
         if error:
             return [], error
 
-        print(f"  → {store.name}: ссылок в каталоге {len(pairs)}")
+        print(f"  → {store.name}: ссылок в каталоге {len(pairs)}", flush=True)
         enrich_budget = max_enrich
         queued: list[tuple[int, str, str]] = []
         for url, title in pairs:
@@ -333,11 +340,12 @@ def scan_store(
         if enrich_budget < len(queued):
             print(
                 f"  → {store.name}: после фильтров {len(queued)}, "
-                f"открываю {enrich_budget} (лимит)"
+                f"открываю {enrich_budget} (лимит)",
+                flush=True,
             )
             queued = queued[:enrich_budget]
         else:
-            print(f"  → {store.name}: открываю все {len(queued)} после фильтров")
+            print(f"  → {store.name}: открываю все {len(queued)} после фильтров", flush=True)
 
         browser_needed: list[tuple[str, str]] = []
         for _, url, title in queued:
@@ -349,16 +357,33 @@ def scan_store(
                 seed_title=title,
             )
             if enriched is not None:
-                if _should_enrich(enriched.title, exclude_brands, exclude_keywords, url=url):
+                kept = _should_enrich(enriched.title, exclude_brands, exclude_keywords, url=url)
+                if kept:
                     listings.append(enriched)
+                if heartbeat is not None:
+                    heartbeat.tick(success=True, detail=enriched.title[:60])
                 time.sleep(request_delay)
                 continue
             if store.use_browser and browser_available():
                 browser_needed.append((url, title))
+            elif heartbeat is not None:
+                heartbeat.tick(success=False, detail="http fail")
 
         if browser_needed:
-            print(f"  → {store.name}: Playwright карточки ({len(browser_needed)})...")
-            pages = fetch_pages_browser([url for url, _ in browser_needed])
+            print(f"  → {store.name}: Playwright карточки ({len(browser_needed)})...", flush=True)
+
+            def _tick(success: bool, detail: str = "") -> None:
+                if heartbeat is None:
+                    return
+                if detail.startswith("стоп:"):
+                    heartbeat.alert(f"⚠ {store.name}: {detail}")
+                    return
+                heartbeat.tick(success=success, detail=detail)
+
+            pages = fetch_pages_browser(
+                [url for url, _ in browser_needed],
+                on_tick=_tick,
+            )
             for url, title in browser_needed:
                 html = pages.get(url)
                 if not html:
@@ -377,6 +402,8 @@ def scan_store(
                     continue
                 listings.append(item)
 
+    if heartbeat is not None:
+        heartbeat.done_store(store.name, len(listings))
     return listings, None
 
 
@@ -385,21 +412,38 @@ def scan_manual_urls(
     source: str,
     store: str,
     request_delay: float,
+    heartbeat: HeartbeatLike | None = None,
 ) -> list[RawListing]:
     listings: list[RawListing] = []
     missing: list[str] = []
+    if heartbeat is not None:
+        heartbeat.set_store(f"{store} (ручные)")
+
     with httpx.Client(headers=DEFAULT_HEADERS, timeout=45, follow_redirects=True) as client:
         for url in urls:
             item = enrich_product_page(url, source, store, client)
             if item is not None:
                 listings.append(item)
+                if heartbeat is not None:
+                    heartbeat.tick(success=True, detail=item.title[:60])
             else:
                 missing.append(url)
+                if heartbeat is not None:
+                    heartbeat.tick(success=False, detail="manual fail")
             time.sleep(request_delay)
 
     if missing and browser_available() and source in BROWSER_STORE_IDS:
         print(f"  → {store}: Playwright для {len(missing)} ручных ссылок...")
-        pages = fetch_pages_browser(missing)
+
+        def _tick(success: bool, detail: str = "") -> None:
+            if heartbeat is None:
+                return
+            if detail.startswith("стоп:"):
+                heartbeat.alert(f"⚠ {store}: {detail}")
+                return
+            heartbeat.tick(success=success, detail=detail)
+
+        pages = fetch_pages_browser(missing, on_tick=_tick)
         for url in missing:
             html = pages.get(url)
             if not html:

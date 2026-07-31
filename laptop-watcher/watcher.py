@@ -12,7 +12,7 @@ import yaml
 from dotenv import load_dotenv
 
 from filters import Candidate, FilterConfig, matches
-from notify import fetch_chat_ids, format_match, format_status, send_telegram
+from notify import Heartbeat, fetch_chat_ids, format_match, format_status, send_telegram, try_send_telegram
 from sources.collector import collect_raw_listings
 from specs_db import SpecsDB
 from storage import ListingRecord, ListingStore
@@ -48,10 +48,10 @@ def build_filter_config(raw: dict) -> FilterConfig:
     )
 
 
-def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
+def collect_candidates(config: dict, heartbeat: Heartbeat | None = None) -> tuple[list[Candidate], object]:
     specs = SpecsDB()
     candidates: list[Candidate] = []
-    items, report = collect_raw_listings(config)
+    items, report = collect_raw_listings(config, heartbeat=heartbeat)
     enriched_hits = 0
     for item in items:
         blob, spec = specs.enrich_text(item.title, item.text_blob)
@@ -69,7 +69,7 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
                 is_gaming_known=spec.is_gaming if spec else None,
             )
         )
-    print(f"База спеков: {specs.count()} кодов, совпадений в прогоне: {enriched_hits}")
+    print(f"База спеков: {specs.count()} кодов, совпадений в прогоне: {enriched_hits}", flush=True)
     return candidates, report
 
 
@@ -94,7 +94,17 @@ def _run_once_unlocked(config_path: Path, dry_run: bool = False) -> str:
     matched = 0
     notified = 0
 
-    candidates, report = collect_candidates(config)
+    heartbeat_every = int(config.get("scan", {}).get("heartbeat_every", 5))
+    heartbeat = Heartbeat(
+        every=heartbeat_every,
+        enabled=not dry_run and bool(os.environ.get("TELEGRAM_BOT_TOKEN")),
+    )
+    if heartbeat.enabled:
+        try_send_telegram(
+            f"🚀 Прогон стартовал — пульс каждые {heartbeat_every} ноутов"
+        )
+
+    candidates, report = collect_candidates(config, heartbeat=heartbeat)
     for candidate in candidates:
         ok, _reason = matches(candidate, filter_cfg)
         if not ok:
