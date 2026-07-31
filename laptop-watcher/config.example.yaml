@@ -14,6 +14,10 @@ scan:
   notify_closest: true
   # Насколько можно вылезти за max_price, чтобы ещё считаться «близко»
   closest_max_over_eur: 250
+  # Если на карточке нет Hz, но остальное подходит — ищем частоту в интернете по MPN/названию
+  web_hz_lookup: true
+  max_web_hz_lookups: 25
+  web_hz_delay_sec: 1.0
 
 filters:
   max_price_eur: 900

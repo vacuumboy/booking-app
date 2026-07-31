@@ -11,7 +11,8 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-from filters import Candidate, FilterConfig, matches, rank_closest
+from filters import Candidate, FilterConfig, matches, rank_closest, _extract_refresh_hz
+from hz_lookup import HzWebLookup, soft_eligible_for_web_hz
 from notify import fetch_chat_ids, format_closest, format_match, format_status, send_telegram
 from sources.collector import collect_raw_listings
 from specs_db import SpecsDB
@@ -55,13 +56,64 @@ def build_filter_config(raw: dict) -> FilterConfig:
 
 def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
     specs = SpecsDB()
+    filter_cfg = build_filter_config(config)
+    scan = config.get("scan", {})
+    web = HzWebLookup(
+        specs,
+        enabled=bool(scan.get("web_hz_lookup", True)),
+        max_lookups=int(scan.get("max_web_hz_lookups", 25)),
+        delay_sec=float(scan.get("web_hz_delay_sec", 1.0)),
+    )
+
     candidates: list[Candidate] = []
     items, report = collect_raw_listings(config)
     enriched_hits = 0
+    web_hits = 0
+
     for item in items:
         blob, spec = specs.enrich_text(item.title, item.text_blob, url=item.url)
         if spec is not None:
             enriched_hits += 1
+
+        listing_only = blob
+        if "specs_db" in listing_only:
+            listing_only = listing_only.split("specs_db", 1)[0]
+        listing_hz = _extract_refresh_hz(
+            f"{item.title} {listing_only}".lower(),
+            filter_cfg,
+        )
+
+        specs_hz = spec.refresh_hz if spec else None
+        hz_source = ""
+        if listing_hz is not None:
+            hz_source = "card"
+        elif specs_hz is not None:
+            hz_source = "specs"
+
+        # Card matches other filters but Hz unknown → ask the internet
+        if listing_hz is None and specs_hz is None:
+            if soft_eligible_for_web_hz(
+                title=item.title,
+                price=item.price,
+                text_blob=blob,
+                max_price=filter_cfg.max_price_eur,
+                max_over=filter_cfg.closest_max_over_eur,
+                min_inch=filter_cfg.min_screen_inch,
+                max_inch=filter_cfg.max_screen_inch,
+                exclude_brands=filter_cfg.exclude_brands,
+                exclude_keywords=filter_cfg.exclude_keywords,
+            ):
+                found = web.lookup(title=item.title, url=item.url, text_blob=item.text_blob)
+                if found is not None:
+                    specs_hz = found.refresh_hz
+                    hz_source = "web"
+                    web_hits += 1
+                    blob = (
+                        f"{blob} specs_db web_lookup matched_code={found.code} "
+                        f"{found.refresh_hz} Hz ({found.source})"
+                    ).strip()
+                    # Re-read from DB next time via upsert already done in lookup
+
         candidates.append(
             Candidate(
                 url=item.url,
@@ -70,13 +122,19 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
                 source=item.source,
                 store=item.store,
                 text_blob=blob,
-                specs_known=spec is not None,
+                specs_known=spec is not None or hz_source == "web",
                 is_gaming_known=spec.is_gaming if spec else None,
-                specs_refresh_hz=spec.refresh_hz if spec else None,
+                specs_refresh_hz=specs_hz if listing_hz is None else None,
                 specs_screen_inch=spec.screen_inch if spec else None,
+                hz_source=hz_source,
             )
         )
-    print(f"База спеков: {specs.count()} кодов, совпадений в прогоне: {enriched_hits}")
+
+    print(
+        f"База спеков: {specs.count()} кодов, совпадений: {enriched_hits}; "
+        f"веб-Hz найдено: {web_hits}, запросов: {web.lookups_done}, miss: {web.misses}",
+        flush=True,
+    )
     return candidates, report
 
 

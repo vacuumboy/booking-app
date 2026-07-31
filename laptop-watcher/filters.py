@@ -35,6 +35,7 @@ class Candidate:
     is_gaming_known: bool | None = None
     specs_refresh_hz: int | None = None
     specs_screen_inch: float | None = None
+    hz_source: str = ""  # card | specs | web | ""
 
 
 @dataclass
@@ -115,21 +116,31 @@ def score_closeness(candidate: Candidate, cfg: FilterConfig) -> Closeness | None
     )
     if listing_hz is not None:
         hz = listing_hz
-        hz_source = "карточка"
+        hz_source = candidate.hz_source or "карточка"
     elif candidate.specs_refresh_hz is not None:
         hz = candidate.specs_refresh_hz
-        hz_source = "база"
+        hz_source = candidate.hz_source or "база"
     else:
         hz = None
         hz_source = ""
+
+    # normalize labels for Telegram
+    source_label = {
+        "card": "карточка",
+        "specs": "база",
+        "web": "интернет",
+        "карточка": "карточка",
+        "база": "база",
+        "интернет": "интернет",
+    }.get(hz_source, hz_source)
 
     inches = _screen_inches(candidate)
 
     # --- refresh Hz (dominant) ---
     if hz is not None and hz >= cfg.min_refresh_hz:
         label = f"{hz} Hz"
-        if hz_source:
-            label += f" ({hz_source})"
+        if source_label:
+            label += f" ({source_label})"
         ok_bits.append(label)
         # tiny nudge: prefer exactly-at-or-above without huge panels
         score += max(0, hz - cfg.min_refresh_hz) * 0.02
@@ -137,7 +148,7 @@ def score_closeness(candidate: Candidate, cfg: FilterConfig) -> Closeness | None
         # Known but below target — still useful near-miss (90–119…)
         deficit = cfg.min_refresh_hz - hz
         score += 80.0 + deficit * 2.5
-        src = f" ({hz_source})" if hz_source else ""
+        src = f" ({source_label})" if source_label else ""
         gaps.append(f"{hz} Hz{src} < {cfg.min_refresh_hz} Hz")
     else:
         # No confirmed Hz → almost never "closest"
