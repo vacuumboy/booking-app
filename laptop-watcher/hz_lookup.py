@@ -503,40 +503,54 @@ def _hz_from_page(client: httpx.Client, url: str, prefer_code: str = "") -> int 
 
 
 def _vote_hz(snippets: list[str], codes: list[str]) -> tuple[int, str] | None:
-    if not snippets:
+    """
+    Only trust an Hz mention when the model code appears in the same snippet.
+    Series/marketing pages without the SKU are ignored (too many false 120/240).
+    """
+    if not snippets or not codes:
         return None
     codes_l = [c.lower() for c in codes]
-    primary = codes_l[0] if codes_l else ""
+    primary = codes_l[0]
     family = primary.split("-")[0] if primary else ""
     scores: Counter[int] = Counter()
     evidence: dict[int, str] = {}
 
     for snip in snippets:
         s = snip.lower()
-        # Skip obvious non-laptop monitor chatter without a model code
-        if "monitor refresh" in s and (not primary or primary not in s):
+        if any(
+            junk in s
+            for junk in (
+                "monitor refresh",
+                "monitor's refresh",
+                "hz test",
+                "free online hz",
+                "check your monitor",
+                "display updates the",
+            )
+        ):
             continue
+
+        matched_codes = [c for c in codes_l if c in s]
+        if not matched_codes:
+            # Allow long family code only if full primary missing but family is specific
+            if not (family and len(family) >= 7 and family in s):
+                continue
+            matched_codes = [family]
+
         for match in re.finditer(r"(\d{2,3})\s*hz", s):
             hz = int(match.group(1))
             if hz not in KNOWN_HZ:
                 continue
-            start = max(0, match.start() - 100)
-            end = min(len(s), match.end() + 100)
-            window = s[start:end]
-            weight = 1
-            code_in_snip = bool(primary and primary in s)
-            if code_in_snip:
-                weight += 5
-            elif family and len(family) >= 5 and family in window:
-                weight += 2
-            elif any(code in s for code in codes_l[1:]):
-                weight += 3
-                code_in_snip = True
-            # High gaming rates need the model code in the same snippet
-            if hz >= 144 and not code_in_snip:
-                continue
+            weight = 3
+            if primary in matched_codes:
+                weight += 4
             if re.search(r"refresh(?:\s*rate)?\s*[:=]?\s*" + str(hz), s):
                 weight += 2
+            # Gaming rates on non-gaming titles are suspicious without "gaming"/rtx context
+            if hz >= 144 and not any(g in s for g in ("gaming", "rtx", "g-sync", "freesync", "tuf", "rog")):
+                weight -= 2
+                if weight < 3:
+                    continue
             scores[hz] += weight
             if hz not in evidence or weight >= 5:
                 evidence[hz] = snip.strip()[:160]
@@ -544,16 +558,12 @@ def _vote_hz(snippets: list[str], codes: list[str]) -> tuple[int, str] | None:
     if not scores:
         return None
 
-    ranked = sorted(
-        scores.items(),
-        key=lambda kv: (kv[1], kv[0] in {60, 120, 144}),
-        reverse=True,
-    )
-    best_hz, best_score = ranked[0]
+    ranked = sorted(scores.items(), key=lambda kv: (kv[1], kv[0] in {60, 120}), reverse=True)
+    best_hz, _best_score = ranked[0]
+    # Prefer 60 when both 60 and 120 appear with MPN (WUXGA vs 3K variants)
     if primary:
         for hz, score in ranked:
-            if hz == 60 and score >= best_score - 2:
-                ev = evidence.get(60, "").lower()
-                if primary in ev:
+            if hz == 60 and primary in evidence.get(60, "").lower():
+                if score >= ranked[0][1] - 3:
                     return 60, evidence.get(60, "")
     return best_hz, evidence.get(best_hz, "")
