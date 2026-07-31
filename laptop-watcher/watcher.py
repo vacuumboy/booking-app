@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from dotenv import load_dotenv
 from filters import Candidate, FilterConfig, matches
 from notify import fetch_chat_ids, format_match, format_status, send_telegram
 from sources.collector import collect_raw_listings
+from specs_db import SpecsDB
 from storage import ListingRecord, ListingStore
 
 
@@ -41,13 +43,19 @@ def build_filter_config(raw: dict) -> FilterConfig:
         exclude_brands=list(filters.get("exclude_brands", [])),
         exclude_keywords=list(filters.get("exclude_keywords", [])),
         refresh_keywords=list(filters.get("refresh_keywords", [])),
+        unknown_refresh_policy=str(filters.get("unknown_refresh_policy", "reject")),
     )
 
 
 def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
+    specs = SpecsDB()
     candidates: list[Candidate] = []
     items, report = collect_raw_listings(config)
+    enriched_hits = 0
     for item in items:
+        blob, spec = specs.enrich_text(item.title, item.text_blob)
+        if spec is not None:
+            enriched_hits += 1
         candidates.append(
             Candidate(
                 url=item.url,
@@ -55,13 +63,16 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
                 price=item.price,
                 source=item.source,
                 store=item.store,
-                text_blob=item.text_blob,
+                text_blob=blob,
+                specs_known=spec is not None,
+                is_gaming_known=spec.is_gaming if spec else None,
             )
         )
+    print(f"База спеков: {specs.count()} кодов, совпадений в прогоне: {enriched_hits}")
     return candidates, report
 
 
-def run_once(config_path: Path, dry_run: bool = False) -> int:
+def run_once(config_path: Path, dry_run: bool = False) -> str:
     load_dotenv(ROOT / ".env")
     config = load_config(config_path)
     filter_cfg = build_filter_config(config)
@@ -106,7 +117,13 @@ def run_once(config_path: Path, dry_run: bool = False) -> int:
         send_telegram(message)
         notified += 1
 
-    print(f"Готово. Подошло: {matched}, уведомлений: {notified}")
+    summary = (
+        f"Готово. Карточек: {report.scanned}, подошло: {matched}, "
+        f"уведомлений: {notified}\n"
+        f"ОК: {', '.join(report.ok_stores) or '—'}\n"
+        f"Недоступны: {', '.join(report.fail_stores) or '—'}"
+    )
+    print(summary)
 
     if (
         not dry_run
@@ -127,16 +144,15 @@ def run_once(config_path: Path, dry_run: bool = False) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"⚠ статус в Telegram не отправился: {exc}")
 
-    return 0
+    return summary
 
 
 def run_loop(config_path: Path, dry_run: bool = False) -> int:
     load_dotenv(ROOT / ".env")
-    config = load_config(config_path)
-    hours = float(config.get("check_interval_hours", 2))
-    seconds = max(60, int(hours * 3600))
-    print(f"Цикл каждые {hours} ч ({seconds} сек). Ctrl+C — стоп.")
     while True:
+        config = load_config(config_path)
+        hours = float(config.get("check_interval_hours", 2))
+        seconds = max(60, int(hours * 3600))
         started = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n===== Проверка {started} =====")
         try:
@@ -147,38 +163,63 @@ def run_loop(config_path: Path, dry_run: bool = False) -> int:
         time.sleep(seconds)
 
 
+def run_bot(config_path: Path, dry_run: bool = False) -> int:
+    """Interactive Telegram bot + scheduled scans in background."""
+    from bot import TelegramBot
+
+    load_dotenv(ROOT / ".env")
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        print("Нужны TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID в .env", file=sys.stderr)
+        return 1
+
+    stop = threading.Event()
+
+    def scheduled() -> None:
+        while not stop.is_set():
+            config = load_config(config_path)
+            hours = float(config.get("check_interval_hours", 2))
+            seconds = max(60, int(hours * 3600))
+            started = time.strftime("%Y-%m-%d %H:%M:%S")
+            print(f"\n===== Автопроверка {started} =====")
+            try:
+                run_once(config_path, dry_run=dry_run)
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠ ошибка прогона: {exc}")
+            stop.wait(seconds)
+
+    threading.Thread(target=scheduled, daemon=True).start()
+
+    def on_scan() -> str:
+        return run_once(config_path, dry_run=dry_run)
+
+    bot = TelegramBot(
+        token=token,
+        allowed_chat_id=chat_id,
+        config_path=config_path,
+        on_scan=on_scan,
+    )
+    try:
+        bot.run_forever()
+    finally:
+        stop.set()
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Монитор ноутбуков LV + Telegram")
+    parser.add_argument("--config", default=str(ROOT / "config.yaml"))
+    parser.add_argument("--once", action="store_true")
+    parser.add_argument("--loop", action="store_true")
     parser.add_argument(
-        "--config",
-        default=str(ROOT / "config.yaml"),
-        help="Путь к config.yaml",
-    )
-    parser.add_argument(
-        "--once",
+        "--bot",
         action="store_true",
-        help="Один проход и выход",
+        help="Telegram-бот с кнопками + автопрогон по расписанию",
     )
-    parser.add_argument(
-        "--loop",
-        action="store_true",
-        help="Крутить постоянно с паузой check_interval_hours",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Не слать в Telegram, только печать в консоль",
-    )
-    parser.add_argument(
-        "--test-telegram",
-        action="store_true",
-        help="Проверить Telegram-уведомление",
-    )
-    parser.add_argument(
-        "--get-chat-id",
-        action="store_true",
-        help="Показать chat id из сообщений, которые ты уже написал боту",
-    )
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--test-telegram", action="store_true")
+    parser.add_argument("--get-chat-id", action="store_true")
     args = parser.parse_args()
 
     load_dotenv(ROOT / ".env")
@@ -190,11 +231,7 @@ def main() -> int:
             return 1
         chats = fetch_chat_ids(token)
         if not chats:
-            print(
-                "Пока пусто. Напиши боту «Noutbuk» любое сообщение "
-                "(например /start) и запусти снова:\n"
-                "  python watcher.py --get-chat-id"
-            )
+            print("Пока пусто. Напиши боту /start и запусти снова.")
             return 1
         for chat in chats:
             username = f" @{chat['username']}" if chat.get("username") else ""
@@ -217,10 +254,13 @@ def main() -> int:
         )
         return 1
 
+    if args.bot:
+        return run_bot(config_path, dry_run=args.dry_run)
     if args.loop:
         return run_loop(config_path, dry_run=args.dry_run)
 
-    return run_once(config_path, dry_run=args.dry_run)
+    run_once(config_path, dry_run=args.dry_run)
+    return 0
 
 
 if __name__ == "__main__":

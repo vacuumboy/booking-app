@@ -1,13 +1,13 @@
 # Скопируй в config.yaml и подправь под себя
+# Настройки также меняются кнопками в Telegram-боте (/settings)
 
 check_interval_hours: 2
 
 scan:
-  max_pages_per_source: 2
-  max_enrich_per_source: 60
-  request_delay_sec: 0.3
-  # Playwright для Dateks / AiO / Baltic Data. Отключить: LAPTOP_WATCHER_DISABLE_BROWSER=1
-  # После каждого прогона слать короткий статус в Telegram
+  # null = без лимита (открываем все страницы / все карточки после бренд-фильтров)
+  max_pages_per_source: null
+  max_enrich_per_source: null
+  request_delay_sec: 0.25
   notify_status: true
 
 filters:
@@ -16,8 +16,13 @@ filters:
   min_refresh_hz: 120
   min_screen_inch: 14
   max_screen_inch: 15.6
-  # max_weight_kg: 1.55   # убрано — вес не фильтруем
+  # max_weight_kg: 1.55
   require_windows: true
+
+  # reject = нет Hz → мимо
+  # accept = нет Hz на карточке → всё равно рассматриваем
+  # (база specs/seed.yaml дополняет Hz по коду модели)
+  unknown_refresh_policy: reject
 
   exclude_brands:
     - lenovo
@@ -50,32 +55,20 @@ filters:
     - "120hz"
     - "120 гц"
 
-# Рабочие магазины с рассрочкой. Cloudflare-магазины выключены, пока браузер их не пробивает.
 sources:
   euronics:
     enabled: true
   tet:
     enabled: true
-    max_pages: 2
-    max_enrich: 40
   dateks:
     enabled: true
-    max_pages: 2
-    max_enrich: 20
   aio:
     enabled: true
-    max_pages: 2
-    max_enrich: 20
   balticdata:
     enabled: true
-    max_pages: 2
-    max_enrich: 20
   m79:
     enabled: true
-    max_pages: 3
-    max_enrich: 40
 
-  # Cloudflare challenge — Playwright пока не проходит (оставляем выкл.)
   "220":
     enabled: false
   rd:

@@ -33,7 +33,19 @@ Playwright обходит Cloudflare для Dateks / AiO / Baltic Data. M79 от
    - Запусти: `python watcher.py --get-chat-id` — скопируй число в `.env` как `TELEGRAM_CHAT_ID`
    - Либо открой **отдельный** чат [@userinfobot](https://t.me/userinfobot) через поиск Telegram (не пиши `@userinfobot` в чат со своим ботом)
 
-3. **Фильтры** — отредактируй `config.yaml` (цена, 120 Hz, бренды)
+3. **Фильтры** — в `config.yaml` или кнопками в боте (⚙️ Настройки)
+
+## База спецификаций (коды моделей)
+
+В карточках магазинов часто **нет 120 Hz**. Поэтому есть база `specs/seed.yaml` → `data/specs.db`:
+- ключ = MPN / код модели / алиас (`M5406WA`, `UX3405`, `Pavilion Plus 14`…)
+- поля: `refresh_hz`, диагональ, вес, `is_gaming`
+
+При скане скрипт ищет код в названии/описании и **дописывает спеки**. Пополняй `specs/seed.yaml`.
+
+`unknown_refresh_policy`:
+- `reject` — нет Hz ни в карточке, ни в базе → мимо
+- `accept` — нет Hz → всё равно рассматриваем (риск ложных)
 
 ## Установка
 
@@ -47,19 +59,27 @@ cp config.example.yaml config.yaml
 # заполни .env
 ```
 
-## Проверка
+## Проверка / бот с кнопками
 
 ```bash
 python watcher.py --test-telegram
 python watcher.py --once --dry-run
-python watcher.py --once
-# или крутить постоянно:
-python watcher.py --loop
+
+# Рекомендуется: бот + автопрогон
+python watcher.py --bot
 ```
+
+В Telegram:
+- **🔍 Прогон** — ручной полный скан
+- **⚙️ Настройки** — цена, Hz, политика «Hz неизвестна»
+- **📊 Статус**
+- или `/set max_price_eur 1000`
+
+Лимиты скана по умолчанию **сняты** (`max_pages/max_enrich: null`).
 
 ## Автозапуск на GitHub (рекомендуется)
 
-Скрипт уже настроен в `.github/workflows/laptop-watcher.yml` — проверка **каждые 3 часа**.
+Скрипт уже настроен в `.github/workflows/laptop-watcher.yml` — проверка **каждые 2 часа**.
 
 ### Один раз настроить секреты
 

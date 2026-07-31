@@ -16,6 +16,9 @@ class FilterConfig:
     exclude_brands: list[str]
     exclude_keywords: list[str]
     refresh_keywords: list[str]
+    # reject = нет Hz → отбросить; accept = нет Hz → пропустить
+    # specs_db = нет Hz в карточке, но если в базе спеков есть — используем её
+    unknown_refresh_policy: str = "reject"
 
 
 @dataclass
@@ -26,10 +29,15 @@ class Candidate:
     source: str
     store: str
     text_blob: str = ""
+    specs_known: bool = False
+    is_gaming_known: bool | None = None
 
 
 def matches(candidate: Candidate, cfg: FilterConfig) -> tuple[bool, str]:
     text = f"{candidate.title} {candidate.text_blob}".lower()
+
+    if candidate.is_gaming_known is True:
+        return False, "игровой (из базы спеков)"
 
     for brand in cfg.exclude_brands:
         if brand.lower() in text:
@@ -45,8 +53,15 @@ def matches(candidate: Candidate, cfg: FilterConfig) -> tuple[bool, str]:
     if cfg.require_windows and "mac" in text and "macbook" in text:
         return False, "macOS"
 
-    if not _has_refresh(text, cfg):
-        return False, f"нет {cfg.min_refresh_hz} Hz в данных"
+    has_refresh = _has_refresh(text, cfg)
+    if not has_refresh:
+        policy = (cfg.unknown_refresh_policy or "reject").lower()
+        if policy == "accept":
+            pass
+        elif policy == "specs_only" and candidate.specs_known:
+            return False, f"нет {cfg.min_refresh_hz} Hz в базе спеков"
+        else:
+            return False, f"нет {cfg.min_refresh_hz} Hz в данных"
 
     inches = _extract_screen_inches(candidate.title)
     if inches is None:

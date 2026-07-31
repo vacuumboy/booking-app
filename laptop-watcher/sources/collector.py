@@ -13,13 +13,26 @@ class ScanReport:
     ok_stores: list[str] = field(default_factory=list)
     fail_stores: list[str] = field(default_factory=list)
     scanned: int = 0
+    catalog_links: int = 0
+
+
+def _limit(value: Any, default: int, unlimited: int = 10_000) -> int:
+    """None / 0 / negative / 'unlimited' → practically no limit."""
+    if value is None:
+        return unlimited
+    if isinstance(value, str) and value.strip().lower() in {"", "unlimited", "none", "null", "inf"}:
+        return unlimited
+    number = int(value)
+    if number <= 0:
+        return unlimited
+    return number
 
 
 def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
     scan_cfg = config.get("scan", {})
-    max_pages = int(scan_cfg.get("max_pages_per_source", 2))
-    max_enrich = int(scan_cfg.get("max_enrich_per_source", 60))
-    request_delay = float(scan_cfg.get("request_delay_sec", 0.3))
+    max_pages = _limit(scan_cfg.get("max_pages_per_source"), 100)
+    max_enrich = _limit(scan_cfg.get("max_enrich_per_source"), 10_000)
+    request_delay = float(scan_cfg.get("request_delay_sec", 0.25))
 
     filters = config.get("filters", {})
     exclude_brands = list(filters.get("exclude_brands", []))
@@ -34,11 +47,17 @@ def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
         if not store_cfg.get("enabled", False):
             continue
 
-        print(f"Сканирую {store.name} ({store.installment_note})...")
+        store_pages = _limit(store_cfg.get("max_pages", max_pages), max_pages)
+        store_enrich = _limit(store_cfg.get("max_enrich", max_enrich), max_enrich)
+
+        print(
+            f"Сканирую {store.name} ({store.installment_note}) "
+            f"[pages≤{store_pages}, enrich≤{store_enrich}]..."
+        )
         items, error = scan_store(
             store_id,
-            max_pages=int(store_cfg.get("max_pages", max_pages)),
-            max_enrich=int(store_cfg.get("max_enrich", max_enrich)),
+            max_pages=store_pages,
+            max_enrich=store_enrich,
             request_delay=request_delay,
             exclude_brands=exclude_brands,
             exclude_keywords=exclude_keywords,

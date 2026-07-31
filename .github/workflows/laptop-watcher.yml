@@ -9,7 +9,7 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: laptop-watcher
@@ -31,10 +31,12 @@ jobs:
       - name: Install Playwright Chromium
         run: playwright install --with-deps chromium
 
-      - name: Restore listings database
+      - name: Restore listings + specs database
         uses: actions/cache@v4
         with:
-          path: laptop-watcher/data/listings.db
+          path: |
+            laptop-watcher/data/listings.db
+            laptop-watcher/data/specs.db
           key: laptop-watcher-db-${{ github.run_id }}
           restore-keys: |
             laptop-watcher-db-
