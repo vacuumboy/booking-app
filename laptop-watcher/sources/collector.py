@@ -16,7 +16,7 @@ class ScanReport:
     catalog_links: int = 0
 
 
-def _limit(value: Any, default: int, unlimited: int = 200) -> int:
+def _limit(value: Any, default: int, unlimited: int = 500) -> int:
     """None / 0 / negative / 'unlimited' → высокий потолок (не бесконечный цикл)."""
     if value is None:
         return unlimited
@@ -30,8 +30,8 @@ def _limit(value: Any, default: int, unlimited: int = 200) -> int:
 
 def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
     scan_cfg = config.get("scan", {})
-    max_pages = _limit(scan_cfg.get("max_pages_per_source"), 100)
-    max_enrich = _limit(scan_cfg.get("max_enrich_per_source"), 10_000)
+    max_pages = _limit(scan_cfg.get("max_pages_per_source"), 100, unlimited=60)
+    max_enrich = _limit(scan_cfg.get("max_enrich_per_source"), 10_000, unlimited=500)
     request_delay = float(scan_cfg.get("request_delay_sec", 0.25))
 
     filters = config.get("filters", {})
