@@ -1,6 +1,24 @@
 # Laptop Watcher (Латвия)
 
-Скрипт ищет ноутбуки по твоим фильтрам на Euronics и вручную заданных ссылках Dateks, и шлёт уведомления в Telegram.
+Скрипт ищет ноутбуки по фильтрам в латвийских магазинах с рассрочкой и шлёт уведомления в Telegram.
+
+## Магазины (с рассрочкой)
+
+| Магазин | Nomaksa / līzings |
+|---------|-------------------|
+| **Euronics** | Inbank līdz 60 mēn. |
+| **Tet** | līdz 36 mēn. |
+| **220.lv** | 0% nomaksa |
+| **Dateks** | Inbank līdz 48 mēn. |
+| **RD Electronics** | līdz 60 mēn. |
+| **1a.lv** | Esto / Inbank |
+| **AiO.lv** | Klix / Esto |
+| **Elkor** | nomaksa |
+| **Signe, Kursi, Bigbox, Baltic Data** | nomaksa |
+
+Часть сайтов блокирует GitHub Actions (Cloudflare) — в логах будет `⚠ сайт недоступен`. Euronics и Tet обычно работают.
+
+Включение/выключение — в `config.yaml → sources`.
 
 ## Что нужно от тебя
 
@@ -66,9 +84,9 @@ crontab -e
 
 ## Ограничения
 
-- **Dateks** часто блокирует ботов (Cloudflare) — добавляй конкретные openbox-ссылки в `config.yaml → sources.dateks_urls.urls`
-- **Tet** пока выключен (тяжёлый фронт)
-- Вес/Hz иногда только в названии — для точности добавляй URL Dateks вручную
+- **Dateks, 220, RD, 1a** и др. часто режут ботов — добавляй конкретные ссылки в `dateks_urls`
+- Сканирование ограничено `scan.max_enrich_per_source` (по умолчанию 80 карточек на магазин)
+- Вес/Hz иногда только на странице товара — приоритет у моделей 14–15″ и с «120 Hz» в названии
 
 ## Добавить свои ссылки Dateks
 

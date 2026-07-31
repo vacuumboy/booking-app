@@ -9,6 +9,7 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: laptop-watcher
@@ -31,12 +32,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: laptop-watcher/data/listings.db
-          key: laptop-watcher-listings-${{ github.run_id }}
+          key: laptop-watcher-db-${{ github.run_id }}
           restore-keys: |
-            laptop-watcher-listings-
+            laptop-watcher-db-
 
       - name: Prepare config
-        run: cp config.example.yaml config.yaml
+        run: |
+          mkdir -p data
+          cp config.example.yaml config.yaml
 
       - name: Run watcher
         env:

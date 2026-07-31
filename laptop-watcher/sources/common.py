@@ -1,0 +1,227 @@
+from __future__ import annotations
+
+import html
+import json
+import re
+from dataclasses import dataclass
+
+import httpx
+
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+DEFAULT_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "lv-LV,lv;q=0.9,ru;q=0.8,en;q=0.7",
+}
+
+
+@dataclass
+class RawListing:
+    url: str
+    title: str
+    price: float | None
+    source: str
+    store: str
+    text_blob: str = ""
+
+
+def is_blocked(page: str, status_code: int) -> bool:
+    if status_code in (403, 503):
+        return True
+    lowered = page[:8000].lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "just a moment",
+            "security verification",
+            "cloudflare",
+            "access denied",
+            "cf-browser-verification",
+        )
+    )
+
+
+def fetch_page(url: str, client: httpx.Client) -> tuple[int, str] | None:
+    try:
+        response = client.get(url)
+    except httpx.HTTPError:
+        return None
+    if is_blocked(response.text, response.status_code):
+        return None
+    if response.status_code >= 400:
+        return None
+    return response.status_code, response.text
+
+
+def decode_json_ld_scripts(page_html: str) -> list[dict]:
+    pattern = re.compile(
+        r'<script[^>]*type=["\']application/ld[^"\']+["\'][^>]*>(.*?)</script>',
+        re.DOTALL | re.IGNORECASE,
+    )
+    items: list[dict] = []
+    for match in pattern.finditer(page_html):
+        raw = html.unescape(match.group(1))
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            items.append(payload)
+    return items
+
+
+def extract_item_list(page_html: str) -> list[tuple[str, str]]:
+    """Returns (url, title) pairs from schema.org ItemList blocks."""
+    results: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for block in decode_json_ld_scripts(page_html):
+        main = block.get("mainEntity")
+        if not isinstance(main, dict):
+            continue
+        elements = main.get("itemListElement")
+        if not isinstance(elements, list):
+            continue
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            url = element.get("item") or element.get("url")
+            title = element.get("name")
+            if not url or not title:
+                continue
+            url = str(url)
+            if url in seen:
+                continue
+            seen.add(url)
+            results.append((url, _clean_text(str(title))))
+    return results
+
+
+def extract_links(page_html: str, pattern: re.Pattern[str], base_url: str = "") -> list[str]:
+    seen: set[str] = set()
+    urls: list[str] = []
+    for match in pattern.finditer(page_html):
+        href = match.group(1)
+        if href.startswith("/"):
+            href = base_url.rstrip("/") + href
+        if href in seen:
+            continue
+        seen.add(href)
+        urls.append(href)
+    return urls
+
+
+def enrich_product_page(
+    url: str,
+    source: str,
+    store: str,
+    client: httpx.Client,
+    seed_title: str = "",
+) -> RawListing | None:
+    fetched = fetch_page(url, client)
+    if fetched is None:
+        return None
+    _, page = fetched
+    title = _extract_title(page) or seed_title or url
+    price = _extract_price(page)
+    text_blob = _extract_specs_text(page, seed_title)
+    return RawListing(
+        url=url,
+        title=_clean_text(title),
+        price=price,
+        source=source,
+        store=store,
+        text_blob=text_blob,
+    )
+
+
+def _clean_text(value: str) -> str:
+    value = html.unescape(value)
+    value = re.sub(r"<[^>]+>", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _extract_title(page: str) -> str | None:
+    for block in decode_json_ld_scripts(page):
+        if block.get("@type") == "Product" and block.get("name"):
+            return str(block["name"])
+        main = block.get("mainEntity")
+        if isinstance(main, dict) and main.get("@type") == "Product" and main.get("name"):
+            return str(main["name"])
+
+    match = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)', page, re.I)
+    if match:
+        return match.group(1)
+    return _extract_tag_text(page, "h1")
+
+
+def _extract_tag_text(page: str, tag: str) -> str | None:
+    match = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", page, re.DOTALL | re.IGNORECASE)
+    if not match:
+        return None
+    return _clean_text(match.group(1))
+
+
+def _extract_price(page: str) -> float | None:
+    for block in decode_json_ld_scripts(page):
+        for node in (block, block.get("mainEntity")):
+            if not isinstance(node, dict):
+                continue
+            offers = node.get("offers")
+            if isinstance(offers, dict) and offers.get("price") is not None:
+                return float(offers["price"])
+
+    for pattern in (
+        r'<meta[^>]+property=["\']product:price:amount["\'][^>]+content=["\']([0-9.]+)',
+        r'data-full-price=["\']([0-9.]+)',
+        r'data-price=["\']([0-9.]+)',
+        r'<span class="price">([0-9]+(?:\.[0-9]+)?)</span>',
+        r'itemprop="price"[^>]+content="([0-9.]+)"',
+    ):
+        match = re.search(pattern, page, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+
+    match = re.search(r"([0-9]{2,4}[.,][0-9]{2})\s*€", page)
+    if match:
+        return float(match.group(1).replace(",", "."))
+
+    return None
+
+
+def _extract_specs_text(page: str, seed_title: str = "") -> str:
+    chunks: list[str] = [seed_title]
+    match = re.search(
+        r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)',
+        page,
+        re.IGNORECASE,
+    )
+    if match:
+        chunks.append(html.unescape(match.group(1)))
+
+    for block in decode_json_ld_scripts(page):
+        for node in (block, block.get("mainEntity")):
+            if not isinstance(node, dict):
+                continue
+            if node.get("description"):
+                chunks.append(str(node["description"]))
+
+    plain = re.sub(r"<[^>]+>", " ", page)
+    plain = re.sub(r"\s+", " ", plain)
+    for pattern in (
+        r"atsvaidzes intensitāte.{0,60}",
+        r"ekrāna atsvaidzes.{0,60}",
+        r"refresh rate.{0,60}",
+        r"displeja atsvaidze.{0,60}",
+        r"Svars.{0,40}",
+        r"produkta svars.{0,40}",
+        r"\d(?:[.,]\d+)?\s*kg",
+        r"\d(?:[.,]\d+)?\s*кг",
+    ):
+        for hit in re.findall(pattern, plain, re.IGNORECASE):
+            chunks.append(hit)
+
+    return " ".join(chunks)[:12000]
