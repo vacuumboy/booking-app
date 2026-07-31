@@ -16,7 +16,7 @@
 | **Elkor** | nomaksa |
 | **Signe, Kursi, Bigbox, Baltic Data** | nomaksa |
 
-Часть сайтов блокирует GitHub Actions (Cloudflare) — в логах будет `⚠ сайт недоступен`. Euronics и Tet обычно работают.
+Часть сайтов блокирует обычный HTTP (Cloudflare). Для **Dateks**, **AiO.lv** и **220.lv** включён fallback через **Playwright** (headless Chrome) в GitHub Actions. Euronics и Tet обычно работают без браузера.
 
 Включение/выключение — в `config.yaml → sources`.
 
@@ -84,9 +84,15 @@ crontab -e
 
 ## Ограничения
 
-- **Dateks, 220, RD, 1a** и др. часто режут ботов — добавляй конкретные ссылки в `dateks_urls`
-- Сканирование ограничено `scan.max_enrich_per_source` (по умолчанию 80 карточек на магазин)
+- **Playwright** для Dateks + AiO.lv (проверено) и 220.lv (часто всё равно challenge)
+- Остальные магазины (RD, 1a…) пока без браузера — при блоке пропускаются
+- Сканирование ограничено `scan.max_enrich_per_source` (для browser-магазинов ≤25 карточек)
 - Вес/Hz иногда только на странице товара — приоритет у моделей 14–15″ и с «120 Hz» в названии
+
+Локально без браузера:
+```bash
+export LAPTOP_WATCHER_DISABLE_BROWSER=1
+```
 
 ## Добавить свои ссылки Dateks
 

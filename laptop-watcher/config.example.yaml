@@ -6,6 +6,7 @@ scan:
   max_pages_per_source: 3
   max_enrich_per_source: 80
   request_delay_sec: 0.35
+  # Playwright для 220.lv / Dateks (Cloudflare). Отключить: LAPTOP_WATCHER_DISABLE_BROWSER=1
 
 filters:
   max_price_eur: 900
@@ -54,14 +55,22 @@ sources:
     enabled: true
   "220":
     enabled: true
+    # Playwright пробуем, но Cloudflare LV часто не пускает
+    max_pages: 1
+    max_enrich: 10
   dateks:
     enabled: true
+    max_pages: 2
+    max_enrich: 20
   rd:
     enabled: true
   "1a":
     enabled: true
   aio:
     enabled: true
+    # Playwright работает с GitHub/облака
+    max_pages: 2
+    max_enrich: 20
   elkor:
     enabled: true
   signe:
