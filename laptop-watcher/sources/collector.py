@@ -16,8 +16,8 @@ class ScanReport:
     catalog_links: int = 0
 
 
-def _limit(value: Any, default: int, unlimited: int = 10_000) -> int:
-    """None / 0 / negative / 'unlimited' → practically no limit."""
+def _limit(value: Any, default: int, unlimited: int = 200) -> int:
+    """None / 0 / negative / 'unlimited' → высокий потолок (не бесконечный цикл)."""
     if value is None:
         return unlimited
     if isinstance(value, str) and value.strip().lower() in {"", "unlimited", "none", "null", "inf"}:

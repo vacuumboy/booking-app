@@ -276,11 +276,19 @@ def collect_catalog_listings(
                 return [], "не нашёл товары на странице каталога"
             break
 
+        new_on_page = 0
         for item_url, title in page_pairs:
             if item_url in seen:
                 continue
             seen.add(item_url)
             pairs.append((item_url, title))
+            new_on_page += 1
+
+        # Сайты вроде Euronics отдают один и тот же JSON-LD на ?page=N —
+        # без этого крутимся тысячами «пустых» страниц.
+        if new_on_page == 0:
+            print(f"  → {store.name}: стр. {page} без новых товаров — стоп пагинации")
+            break
 
     if used_browser and pairs:
         print(f"  → {store.name}: Playwright открыл каталог ({len(pairs)} ссылок)")
