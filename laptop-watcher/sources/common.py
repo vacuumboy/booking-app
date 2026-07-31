@@ -178,40 +178,48 @@ def _extract_tag_text(page: str, tag: str) -> str | None:
 
 def _extract_price(page: str) -> float | None:
     """Extract full laptop price; ignore leasing teasers like 1€/mo."""
-    candidates: list[float] = []
 
-    def add(raw: object) -> None:
-        value = _coerce_laptop_price(raw)
-        if value is not None:
-            candidates.append(value)
-
+    # 1) schema.org Offer on the product itself — most trustworthy
     for block in decode_json_ld_scripts(page):
         for node in (block, block.get("mainEntity")):
             if not isinstance(node, dict):
                 continue
             offers = node.get("offers")
+            offer_nodes: list[dict] = []
             if isinstance(offers, dict):
-                add(offers.get("price"))
+                offer_nodes = [offers]
             elif isinstance(offers, list):
-                for offer in offers:
-                    if isinstance(offer, dict):
-                        add(offer.get("price"))
+                offer_nodes = [o for o in offers if isinstance(o, dict)]
+            for offer in offer_nodes:
+                value = _coerce_laptop_price(offer.get("price"))
+                if value is not None:
+                    return value
 
+    # 2) Explicit product price meta / full-price fields
     for pattern in (
         r'data-full-price=["\']([0-9.]+)',
         r'<meta[^>]+property=["\']product:price:amount["\'][^>]+content=["\']([0-9.]+)',
-        r'data-price=["\']([0-9.]+)',
-        r'<span class="price">([0-9]+(?:[.,][0-9]+)?)</span>',
         r'itemprop="price"[^>]+content="([0-9.]+)"',
-        r"([0-9]{2,4}[.,][0-9]{2})\s*€",
+    ):
+        match = re.search(pattern, page, re.IGNORECASE)
+        if match:
+            value = _coerce_laptop_price(match.group(1))
+            if value is not None:
+                return value
+
+    # 3) Last resort: visible price spans (may include accessories — take max)
+    candidates: list[float] = []
+    for pattern in (
+        r'<span class="price">([0-9]+(?:[.,][0-9]+)?)</span>',
+        r'data-price=["\']([0-9.]+)',
     ):
         for match in re.finditer(pattern, page, re.IGNORECASE):
-            add(match.group(1))
-
-    if not candidates:
-        return None
-    # Prefer a realistic full price (leasing crumbs already filtered out)
-    return min(candidates)
+            value = _coerce_laptop_price(match.group(1))
+            if value is not None:
+                candidates.append(value)
+    if candidates:
+        return max(candidates)
+    return None
 
 
 def _coerce_laptop_price(raw: object) -> float | None:
