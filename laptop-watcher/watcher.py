@@ -68,6 +68,7 @@ def collect_candidates(config: dict) -> tuple[list[Candidate], object]:
                 specs_known=spec is not None,
                 is_gaming_known=spec.is_gaming if spec else None,
                 specs_refresh_hz=spec.refresh_hz if spec else None,
+                specs_screen_inch=spec.screen_inch if spec else None,
             )
         )
     print(f"База спеков: {specs.count()} кодов, совпадений в прогоне: {enriched_hits}")

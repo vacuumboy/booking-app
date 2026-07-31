@@ -105,13 +105,16 @@ def format_closest(
     """Telegram digests for near-miss / best-fit ranked listings."""
     if not ranked:
         return (
-            "🎯 Ближайших вариантов нет "
-            "(все карточки отсеялись по бренду/игровым)."
+            "🎯 Близких вариантов с подтверждённой частотой сейчас нет\n"
+            f"(ищу от {min_hz} Hz, {min_inch:g}–{max_inch:g}\", "
+            f"бюджет около ≤{max_price:.0f}€).\n"
+            "Обычные 60 Hz / без Hz в данных в топ не ставлю."
         )
 
     lines = [
         "🎯 Ближайшие к фильтрам",
-        f"(бюджет ≤{max_price:.0f}€, от {min_hz} Hz, {min_inch:g}–{max_inch:g}\")",
+        f"(с подтверждённой частотой · ≤{max_price:.0f}€ · "
+        f"от {min_hz} Hz · {min_inch:g}–{max_inch:g}\")",
         "",
     ]
     for index, item in enumerate(ranked, start=1):
@@ -121,7 +124,8 @@ def format_closest(
         title = c.title if len(c.title) <= 90 else c.title[:87] + "…"
         ok = ", ".join(item.ok_bits) if item.ok_bits else "—"
         gap = ", ".join(item.gaps) if item.gaps else "всё ок"
-        lines.append(f"{mark} {index}. {price} · {c.store}")
+        hz_bit = f"{item.hz} Hz" if item.hz is not None else "? Hz"
+        lines.append(f"{mark} {index}. {price} · {hz_bit} · {c.store}")
         lines.append(title)
         lines.append(f"   ✓ {ok}")
         if not item.perfect:
