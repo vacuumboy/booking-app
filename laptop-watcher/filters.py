@@ -11,7 +11,7 @@ class FilterConfig:
     min_refresh_hz: int
     min_screen_inch: float
     max_screen_inch: float
-    max_weight_kg: float
+    max_weight_kg: float | None
     require_windows: bool
     exclude_brands: list[str]
     exclude_keywords: list[str]
@@ -55,11 +55,12 @@ def matches(candidate: Candidate, cfg: FilterConfig) -> tuple[bool, str]:
         if inches < cfg.min_screen_inch or inches > cfg.max_screen_inch:
             return False, f"диагональ {inches}\" вне {cfg.min_screen_inch}-{cfg.max_screen_inch}\""
 
-    weight = _extract_weight_kg(candidate.text_blob)
-    if weight is None:
-        weight = _extract_weight_kg(text)
-    if weight is not None and weight > cfg.max_weight_kg:
-        return False, f"вес {weight} кг > {cfg.max_weight_kg} кг"
+    if cfg.max_weight_kg is not None:
+        weight = _extract_weight_kg(candidate.text_blob)
+        if weight is None:
+            weight = _extract_weight_kg(text)
+        if weight is not None and weight > cfg.max_weight_kg:
+            return False, f"вес {weight} кг > {cfg.max_weight_kg} кг"
 
     return True, "ok"
 

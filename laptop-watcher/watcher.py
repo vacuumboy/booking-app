@@ -32,7 +32,11 @@ def build_filter_config(raw: dict) -> FilterConfig:
         min_refresh_hz=int(filters.get("min_refresh_hz", 120)),
         min_screen_inch=float(filters.get("min_screen_inch", 14)),
         max_screen_inch=float(filters.get("max_screen_inch", 15.6)),
-        max_weight_kg=float(filters.get("max_weight_kg", 1.55)),
+        max_weight_kg=(
+            float(filters["max_weight_kg"])
+            if filters.get("max_weight_kg") is not None
+            else None
+        ),
         require_windows=bool(filters.get("require_windows", True)),
         exclude_brands=list(filters.get("exclude_brands", [])),
         exclude_keywords=list(filters.get("exclude_keywords", [])),
