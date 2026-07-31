@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from contextlib import contextmanager
 
 from sources.common import is_blocked
@@ -9,12 +10,17 @@ from sources.common import is_blocked
 # Stores that need (or benefit from) a real browser behind Cloudflare.
 BROWSER_STORE_IDS = frozenset({"220", "dateks", "aio", "balticdata"})
 
+# Stop wasting time when a shop keeps returning 403.
+MAX_CONSECUTIVE_BROWSER_FAILS = 8
+
 STEALTH_INIT = """
 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
 window.chrome = { runtime: {} };
 Object.defineProperty(navigator, 'languages', {get: () => ['lv-LV', 'lv', 'en-US', 'en']});
 Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3]});
 """
+
+TickFn = Callable[[bool, str], None]
 
 
 def browser_available() -> bool:
@@ -63,21 +69,21 @@ def browser_page():
         )
         context.add_init_script(STEALTH_INIT)
         page = context.new_page()
-        page.set_default_timeout(25000)
+        page.set_default_timeout(20000)
         try:
             yield page
         finally:
             browser.close()
 
 
-def fetch_page_browser(url: str, wait_ms: int = 2000) -> tuple[int, str] | None:
+def fetch_page_browser(url: str, wait_ms: int = 1500) -> tuple[int, str] | None:
     """Fetch HTML via headless Chromium. Returns None if blocked/unavailable."""
     _log(f"  → browser: открываю {url[:90]}")
     try:
         with browser_page() as page:
             if page is None:
                 return None
-            response = page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            response = page.goto(url, wait_until="domcontentloaded", timeout=20000)
             status = response.status if response is not None else 0
             page.wait_for_timeout(wait_ms)
             html = page.content()
@@ -95,30 +101,55 @@ def fetch_page_browser(url: str, wait_ms: int = 2000) -> tuple[int, str] | None:
     return status or 200, html
 
 
-def fetch_pages_browser(urls: list[str], wait_ms: int = 1500) -> dict[str, str]:
+def fetch_pages_browser(
+    urls: list[str],
+    wait_ms: int = 1200,
+    on_tick: TickFn | None = None,
+) -> dict[str, str]:
     """Fetch several pages in one browser session (keeps cookies)."""
     if not browser_available() or not urls:
         return {}
 
     results: dict[str, str] = {}
     total = len(urls)
+    consecutive_fails = 0
     try:
         with browser_page() as page:
             if page is None:
                 return {}
             for index, url in enumerate(urls, start=1):
                 _log(f"  → browser карточка {index}/{total}: {url[:80]}")
+                ok = False
                 try:
-                    response = page.goto(url, wait_until="domcontentloaded", timeout=25000)
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=20000)
                     status = response.status if response is not None else 0
                     page.wait_for_timeout(wait_ms)
                     html = page.content()
                     if response is not None and not is_blocked(html, status) and status < 400:
                         results[url] = html
+                        ok = True
+                        consecutive_fails = 0
                     else:
                         _log(f"  ⚠ browser skip status={status}")
+                        consecutive_fails += 1
                 except Exception as exc:  # noqa: BLE001
                     _log(f"  ⚠ browser: {exc}")
+                    consecutive_fails += 1
+
+                if on_tick is not None:
+                    on_tick(ok, f"browser {index}/{total}")
+
+                if consecutive_fails >= MAX_CONSECUTIVE_BROWSER_FAILS:
+                    _log(
+                        f"  ⚠ browser: {consecutive_fails} ошибок подряд — "
+                        f"бросаю оставшиеся {total - index} карточек"
+                    )
+                    if on_tick is not None:
+                        on_tick(
+                            False,
+                            f"стоп: {consecutive_fails} ошибок подряд, пропуск остатка",
+                        )
+                    break
     except Exception as exc:  # noqa: BLE001
         _log(f"  ⚠ browser session failed: {exc}")
         return results

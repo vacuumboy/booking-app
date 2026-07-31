@@ -28,7 +28,10 @@ def _limit(value: Any, default: int, unlimited: int = 200) -> int:
     return number
 
 
-def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
+def collect_raw_listings(
+    config: dict,
+    heartbeat: Any | None = None,
+) -> tuple[list[RawListing], ScanReport]:
     scan_cfg = config.get("scan", {})
     max_pages = _limit(scan_cfg.get("max_pages_per_source"), 100)
     max_enrich = _limit(scan_cfg.get("max_enrich_per_source"), 10_000)
@@ -52,7 +55,8 @@ def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
 
         print(
             f"Сканирую {store.name} ({store.installment_note}) "
-            f"[pages≤{store_pages}, enrich≤{store_enrich}]..."
+            f"[pages≤{store_pages}, enrich≤{store_enrich}]...",
+            flush=True,
         )
         items, error = scan_store(
             store_id,
@@ -61,12 +65,13 @@ def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
             request_delay=request_delay,
             exclude_brands=exclude_brands,
             exclude_keywords=exclude_keywords,
+            heartbeat=heartbeat,
         )
         if error:
-            print(f"  ⚠ {store.name}: {error}")
+            print(f"  ⚠ {store.name}: {error}", flush=True)
             report.fail_stores.append(store.name)
             continue
-        print(f"  ✓ {store.name}: проверено карточек {len(items)}")
+        print(f"  ✓ {store.name}: проверено карточек {len(items)}", flush=True)
         report.ok_stores.append(store.name)
         candidates.extend(items)
         time.sleep(0.2)
@@ -75,18 +80,19 @@ def collect_raw_listings(config: dict) -> tuple[list[RawListing], ScanReport]:
     if dateks_urls_cfg.get("enabled", True):
         urls = list(dateks_urls_cfg.get("urls", []))
         if urls:
-            print("Проверяю Dateks (ручные ссылки)...")
+            print("Проверяю Dateks (ручные ссылки)...", flush=True)
             items = scan_manual_urls(
                 urls,
                 source="dateks",
                 store="Dateks",
                 request_delay=request_delay,
+                heartbeat=heartbeat,
             )
             found = len(items)
             if found < len(urls):
-                print(f"  ⚠ Dateks manual: прочитано {found}/{len(urls)} ссылок")
+                print(f"  ⚠ Dateks manual: прочитано {found}/{len(urls)} ссылок", flush=True)
             else:
-                print(f"  ✓ Dateks manual: {found} ссылок")
+                print(f"  ✓ Dateks manual: {found} ссылок", flush=True)
             candidates.extend(items)
 
     report.scanned = len(candidates)

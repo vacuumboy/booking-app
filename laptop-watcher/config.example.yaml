@@ -4,11 +4,13 @@
 check_interval_hours: 2
 
 scan:
-  # null = без лимита (открываем все страницы / все карточки после бренд-фильтров)
+  # null = без жёсткого лимита (потолок внутри ~200)
   max_pages_per_source: null
   max_enrich_per_source: null
   request_delay_sec: 0.25
   notify_status: true
+  # Пульс в Telegram каждые N проверенных карточек
+  heartbeat_every: 5
 
 filters:
   max_price_eur: 900
@@ -60,10 +62,8 @@ sources:
     enabled: true
   tet:
     enabled: true
-  dateks:
-    enabled: true
   aio:
-    enabled: true
+    enabled: false  # Playwright сейчас ловит 403 на карточках
   balticdata:
     enabled: true
   m79:
@@ -83,6 +83,9 @@ sources:
     enabled: false
   bigbox:
     enabled: false
+  dateks:
+    enabled: true
+  # dateks already above — keep order via full block rewrite below
 
   dateks_urls:
     enabled: true
