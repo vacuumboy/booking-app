@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
+import sys
 from contextlib import contextmanager
-from typing import Iterator
 
 from sources.common import is_blocked
 
@@ -27,8 +27,13 @@ def browser_available() -> bool:
     return True
 
 
+def _log(msg: str) -> None:
+    print(msg, flush=True)
+    sys.stdout.flush()
+
+
 @contextmanager
-def browser_page(wait_ms_default: int = 3500):
+def browser_page():
     """Yield a Playwright page with stealth-ish settings."""
     if not browser_available():
         yield None
@@ -58,56 +63,65 @@ def browser_page(wait_ms_default: int = 3500):
         )
         context.add_init_script(STEALTH_INIT)
         page = context.new_page()
-        page.set_default_timeout(60000)
+        page.set_default_timeout(25000)
         try:
             yield page
         finally:
             browser.close()
 
 
-def fetch_page_browser(url: str, wait_ms: int = 4000) -> tuple[int, str] | None:
+def fetch_page_browser(url: str, wait_ms: int = 2000) -> tuple[int, str] | None:
     """Fetch HTML via headless Chromium. Returns None if blocked/unavailable."""
+    _log(f"  → browser: открываю {url[:90]}")
     try:
         with browser_page() as page:
             if page is None:
                 return None
-            response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            response = page.goto(url, wait_until="domcontentloaded", timeout=25000)
             status = response.status if response is not None else 0
             page.wait_for_timeout(wait_ms)
             html = page.content()
     except Exception as exc:  # noqa: BLE001
-        print(f"  ⚠ browser fetch failed: {exc}")
+        _log(f"  ⚠ browser fetch failed: {exc}")
         return None
 
     if is_blocked(html, status or 403):
+        _log("  ⚠ browser: Cloudflare/blocked")
         return None
     if status and status >= 400:
+        _log(f"  ⚠ browser: HTTP {status}")
         return None
+    _log(f"  → browser: OK ({len(html)} байт)")
     return status or 200, html
 
 
-def fetch_pages_browser(urls: list[str], wait_ms: int = 3000) -> dict[str, str]:
+def fetch_pages_browser(urls: list[str], wait_ms: int = 1500) -> dict[str, str]:
     """Fetch several pages in one browser session (keeps cookies)."""
     if not browser_available() or not urls:
         return {}
 
     results: dict[str, str] = {}
+    total = len(urls)
     try:
         with browser_page() as page:
             if page is None:
                 return {}
-            for url in urls:
+            for index, url in enumerate(urls, start=1):
+                _log(f"  → browser карточка {index}/{total}: {url[:80]}")
                 try:
-                    response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=25000)
                     status = response.status if response is not None else 0
                     page.wait_for_timeout(wait_ms)
                     html = page.content()
                     if response is not None and not is_blocked(html, status) and status < 400:
                         results[url] = html
+                    else:
+                        _log(f"  ⚠ browser skip status={status}")
                 except Exception as exc:  # noqa: BLE001
-                    print(f"  ⚠ browser: {url}: {exc}")
+                    _log(f"  ⚠ browser: {exc}")
     except Exception as exc:  # noqa: BLE001
-        print(f"  ⚠ browser session failed: {exc}")
+        _log(f"  ⚠ browser session failed: {exc}")
         return results
 
+    _log(f"  → browser: готово {len(results)}/{total}")
     return results
