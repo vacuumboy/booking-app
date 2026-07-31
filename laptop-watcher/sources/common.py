@@ -37,10 +37,11 @@ def is_blocked(page: str, status_code: int) -> bool:
         marker in lowered
         for marker in (
             "just a moment",
+            "mazliet uzgaidiet",  # Cloudflare LV
             "security verification",
-            "cloudflare",
-            "access denied",
             "cf-browser-verification",
+            "access denied",
+            "attention required",
         )
     )
 
@@ -114,17 +115,13 @@ def extract_links(page_html: str, pattern: re.Pattern[str], base_url: str = "") 
     return urls
 
 
-def enrich_product_page(
+def listing_from_html(
     url: str,
+    page: str,
     source: str,
     store: str,
-    client: httpx.Client,
     seed_title: str = "",
-) -> RawListing | None:
-    fetched = fetch_page(url, client)
-    if fetched is None:
-        return None
-    _, page = fetched
+) -> RawListing:
     title = _extract_title(page) or seed_title or url
     price = _extract_price(page)
     text_blob = _extract_specs_text(page, seed_title)
@@ -136,6 +133,20 @@ def enrich_product_page(
         store=store,
         text_blob=text_blob,
     )
+
+
+def enrich_product_page(
+    url: str,
+    source: str,
+    store: str,
+    client: httpx.Client,
+    seed_title: str = "",
+) -> RawListing | None:
+    fetched = fetch_page(url, client)
+    if fetched is None:
+        return None
+    _, page = fetched
+    return listing_from_html(url, page, source, store, seed_title=seed_title)
 
 
 def _clean_text(value: str) -> str:

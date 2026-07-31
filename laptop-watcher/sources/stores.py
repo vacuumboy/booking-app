@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from sources.browser import BROWSER_STORE_IDS, browser_available, fetch_page_browser, fetch_pages_browser
 from sources.common import (
     DEFAULT_HEADERS,
     RawListing,
@@ -13,6 +14,7 @@ from sources.common import (
     extract_item_list,
     extract_links,
     fetch_page,
+    listing_from_html,
 )
 
 
@@ -26,6 +28,7 @@ class StoreDefinition:
     link_pattern: re.Pattern[str] | None = None
     page_param: str = "page"  # tet uses p=
     uses_json_ld_list: bool = False
+    use_browser: bool = False
 
 
 # Latvijas interneta veikali ar nomaksu / līzingu (pēc iespējas pilns saraksts).
@@ -56,9 +59,11 @@ STORES: dict[str, StoreDefinition] = {
         list_url="https://220.lv/lv/datortehnika/portativie-datori-un-plansetes/portativie-datori",
         base_url="https://220.lv",
         link_pattern=re.compile(
-            r'href="(/lv/[^"]*portativ[^"]*\.html)"',
+            r'href="((?:https://220\.lv)?/lv/[^"]*(?:portativ|laptop|klepj)[^"]*)"',
             re.IGNORECASE,
         ),
+        # Cloudflare challenge ("Mazliet uzgaidiet") — browser тоже часто не проходит.
+        use_browser=True,
     ),
     "dateks": StoreDefinition(
         id="dateks",
@@ -67,10 +72,11 @@ STORES: dict[str, StoreDefinition] = {
         list_url="https://www.dateks.lv/cenas/portativie-datori",
         base_url="https://www.dateks.lv",
         link_pattern=re.compile(
-            r'href="(/cenas/portativie-datori/[^"]+)"',
+            r'href="((?:https://www\.dateks\.lv)?/cenas/portativie-datori/\d+-[^"?#]+)"',
             re.IGNORECASE,
         ),
         page_param="page",
+        use_browser=True,
     ),
     "rd": StoreDefinition(
         id="rd",
@@ -100,13 +106,14 @@ STORES: dict[str, StoreDefinition] = {
         id="aio",
         name="AiO.lv",
         installment_note="Klix / Esto bezprocentu",
-        list_url="https://aio.lv/lv/portativie-un-personalie-datori/portativie-datori",
+        list_url="https://aio.lv/lv/category--portativie-datori--94",
         base_url="https://aio.lv",
         link_pattern=re.compile(
-            r'href="(/lv/[^"]*portativ[^"]+)"',
+            r'href="((?:https://aio\.lv)?/lv/product--[^"?#]+)"',
             re.IGNORECASE,
         ),
         page_param="page",
+        use_browser=True,
     ),
     "elkor": StoreDefinition(
         id="elkor",
@@ -178,8 +185,16 @@ def _page_url(store: StoreDefinition, page: int) -> str:
     return f"{store.list_url}{sep}{store.page_param}={page}"
 
 
-def _should_enrich(title: str, exclude_brands: list[str], exclude_keywords: list[str]) -> bool:
-    text = title.lower()
+def _seed_from_url(url: str) -> str:
+    slug = url.rstrip("/").split("/")[-1]
+    slug = re.sub(r"^\d+-", "", slug)
+    slug = re.sub(r"^product--", "", slug)
+    slug = re.sub(r"--\d+$", "", slug)
+    return slug.replace("-", " ").replace("_", " ")
+
+
+def _should_enrich(title: str, exclude_brands: list[str], exclude_keywords: list[str], url: str = "") -> bool:
+    text = f"{title} {_seed_from_url(url)}".lower()
     for brand in exclude_brands:
         if brand.lower() in text:
             return False
@@ -188,13 +203,24 @@ def _should_enrich(title: str, exclude_brands: list[str], exclude_keywords: list
             return False
     if re.search(r'\b(16|17|18)(?:[.,]\d)?\s*["\']', text):
         return False
-    if re.search(r"\b1[6-8]\s*coll", text):
+    if re.search(r"\b1[6-8]\s*(?:coll|inch)\b", text):
         return False
     return True
 
 
 def _listing_seed(title: str) -> RawListing:
     return RawListing(url="", title=title, price=None, source="", store="", text_blob=title)
+
+
+def _pairs_from_html(store: StoreDefinition, html_page: str) -> list[tuple[str, str]]:
+    if store.uses_json_ld_list:
+        return extract_item_list(html_page)
+    if store.link_pattern is not None:
+        urls = extract_links(html_page, store.link_pattern, store.base_url)
+        # Drop category landing pages themselves.
+        urls = [url for url in urls if url.rstrip("/") != store.list_url.rstrip("/")]
+        return [(url, "") for url in urls]
+    return []
 
 
 def collect_catalog_listings(
@@ -205,34 +231,37 @@ def collect_catalog_listings(
     """Returns ([(url, title), ...], error_message)."""
     pairs: list[tuple[str, str]] = []
     seen: set[str] = set()
+    used_browser = False
 
     for page in range(1, max_pages + 1):
-        fetched = fetch_page(_page_url(store, page), client)
+        url = _page_url(store, page)
+        fetched = fetch_page(url, client)
+        if fetched is None and store.use_browser and browser_available():
+            if page == 1:
+                print(f"  → {store.name}: HTTP заблокирован, пробую Playwright...")
+            fetched = fetch_page_browser(url)
+            used_browser = fetched is not None
         if fetched is None:
             if page == 1:
-                return [], "сайт недоступен (бот/Cloudflare)"
+                hint = " (Playwright тоже не помог)" if store.use_browser else ""
+                return [], f"сайт недоступен (бот/Cloudflare){hint}"
             break
         _, html_page = fetched
-
-        if store.uses_json_ld_list:
-            page_pairs = extract_item_list(html_page)
-        elif store.link_pattern is not None:
-            urls = extract_links(html_page, store.link_pattern, store.base_url)
-            page_pairs = [(url, "") for url in urls]
-        else:
-            page_pairs = []
+        page_pairs = _pairs_from_html(store, html_page)
 
         if not page_pairs:
             if page == 1:
                 return [], "не нашёл товары на странице каталога"
             break
 
-        for url, title in page_pairs:
-            if url in seen:
+        for item_url, title in page_pairs:
+            if item_url in seen:
                 continue
-            seen.add(url)
-            pairs.append((url, title))
+            seen.add(item_url)
+            pairs.append((item_url, title))
 
+    if used_browser and pairs:
+        print(f"  → {store.name}: Playwright открыл каталог ({len(pairs)} ссылок)")
     return pairs, None
 
 
@@ -256,6 +285,10 @@ def scan_store(
     exclude_keywords: list[str],
 ) -> tuple[list[RawListing], str | None]:
     store = STORES[store_id]
+    # Browser enrich is slow — keep a smaller budget for CF-blocked shops.
+    if store.use_browser:
+        max_enrich = min(max_enrich, 25)
+
     listings: list[RawListing] = []
     with httpx.Client(headers=DEFAULT_HEADERS, timeout=45, follow_redirects=True) as client:
         pairs, error = collect_catalog_listings(store, client, max_pages)
@@ -265,14 +298,15 @@ def scan_store(
         enrich_budget = max_enrich
         queued: list[tuple[int, str, str]] = []
         for url, title in pairs:
-            if not _should_enrich(title, exclude_brands, exclude_keywords):
+            seed = title or _seed_from_url(url)
+            if not _should_enrich(seed, exclude_brands, exclude_keywords, url=url):
                 continue
-            queued.append((_enrich_priority(title), url, title))
+            queued.append((_enrich_priority(seed), url, seed))
         queued.sort(key=lambda item: item[0])
+        queued = queued[:enrich_budget]
 
+        browser_needed: list[tuple[str, str]] = []
         for _, url, title in queued:
-            if enrich_budget <= 0:
-                break
             enriched = enrich_product_page(
                 url,
                 store.id,
@@ -280,11 +314,31 @@ def scan_store(
                 client,
                 seed_title=title,
             )
-            if enriched is None:
+            if enriched is not None:
+                listings.append(enriched)
+                time.sleep(request_delay)
                 continue
-            listings.append(enriched)
-            enrich_budget -= 1
-            time.sleep(request_delay)
+            if store.use_browser and browser_available():
+                browser_needed.append((url, title))
+
+        if browser_needed:
+            print(f"  → {store.name}: Playwright карточки ({len(browser_needed)})...")
+            pages = fetch_pages_browser([url for url, _ in browser_needed])
+            for url, title in browser_needed:
+                html = pages.get(url)
+                if not html:
+                    continue
+                item = listing_from_html(
+                    url,
+                    html,
+                    store.id,
+                    store.name,
+                    seed_title=title,
+                )
+                # Dateks иногда отдаёт каталог вместо карточки.
+                if item.title.lower() in {"portatīvie datori", "portativie datori", "laptops"}:
+                    continue
+                listings.append(item)
 
     return listings, None
 
@@ -296,10 +350,23 @@ def scan_manual_urls(
     request_delay: float,
 ) -> list[RawListing]:
     listings: list[RawListing] = []
+    missing: list[str] = []
     with httpx.Client(headers=DEFAULT_HEADERS, timeout=45, follow_redirects=True) as client:
         for url in urls:
             item = enrich_product_page(url, source, store, client)
             if item is not None:
                 listings.append(item)
+            else:
+                missing.append(url)
             time.sleep(request_delay)
+
+    if missing and browser_available() and source in BROWSER_STORE_IDS:
+        print(f"  → {store}: Playwright для {len(missing)} ручных ссылок...")
+        pages = fetch_pages_browser(missing)
+        for url in missing:
+            html = pages.get(url)
+            if not html:
+                continue
+            listings.append(listing_from_html(url, html, source, store))
+
     return listings
