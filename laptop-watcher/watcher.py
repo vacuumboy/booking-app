@@ -51,6 +51,7 @@ def build_filter_config(raw: dict) -> FilterConfig:
             or filters.get("closest_max_over_eur")
             or 250
         ),
+        min_price_eur=float(filters.get("min_price_eur", 250)),
     )
 
 

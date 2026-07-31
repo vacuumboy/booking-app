@@ -177,30 +177,54 @@ def _extract_tag_text(page: str, tag: str) -> str | None:
 
 
 def _extract_price(page: str) -> float | None:
+    """Extract full laptop price; ignore leasing teasers like 1€/mo."""
+    candidates: list[float] = []
+
+    def add(raw: object) -> None:
+        value = _coerce_laptop_price(raw)
+        if value is not None:
+            candidates.append(value)
+
     for block in decode_json_ld_scripts(page):
         for node in (block, block.get("mainEntity")):
             if not isinstance(node, dict):
                 continue
             offers = node.get("offers")
-            if isinstance(offers, dict) and offers.get("price") is not None:
-                return float(offers["price"])
+            if isinstance(offers, dict):
+                add(offers.get("price"))
+            elif isinstance(offers, list):
+                for offer in offers:
+                    if isinstance(offer, dict):
+                        add(offer.get("price"))
 
     for pattern in (
-        r'<meta[^>]+property=["\']product:price:amount["\'][^>]+content=["\']([0-9.]+)',
         r'data-full-price=["\']([0-9.]+)',
+        r'<meta[^>]+property=["\']product:price:amount["\'][^>]+content=["\']([0-9.]+)',
         r'data-price=["\']([0-9.]+)',
-        r'<span class="price">([0-9]+(?:\.[0-9]+)?)</span>',
+        r'<span class="price">([0-9]+(?:[.,][0-9]+)?)</span>',
         r'itemprop="price"[^>]+content="([0-9.]+)"',
+        r"([0-9]{2,4}[.,][0-9]{2})\s*€",
     ):
-        match = re.search(pattern, page, re.IGNORECASE)
-        if match:
-            return float(match.group(1))
+        for match in re.finditer(pattern, page, re.IGNORECASE):
+            add(match.group(1))
 
-    match = re.search(r"([0-9]{2,4}[.,][0-9]{2})\s*€", page)
-    if match:
-        return float(match.group(1).replace(",", "."))
+    if not candidates:
+        return None
+    # Prefer a realistic full price (leasing crumbs already filtered out)
+    return min(candidates)
 
-    return None
+
+def _coerce_laptop_price(raw: object) -> float | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        value = float(str(raw).replace(",", ".").replace(" ", ""))
+    except (TypeError, ValueError):
+        return None
+    # 1€ / 12€/mo teasers and absurd outliers
+    if value < 250 or value > 5000:
+        return None
+    return value
 
 
 def _extract_specs_text(page: str, seed_title: str = "") -> str:

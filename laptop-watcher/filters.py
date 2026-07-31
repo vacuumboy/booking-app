@@ -21,6 +21,8 @@ class FilterConfig:
     unknown_refresh_policy: str = "reject"
     # Для топа «ближайшие»: насколько можно вылезти за бюджет
     closest_max_over_eur: float = 250.0
+    # Ниже этого — лизинг/ошибка парсинга (1€ и т.п.)
+    min_price_eur: float = 250.0
 
 
 @dataclass
@@ -57,6 +59,12 @@ def matches(candidate: Candidate, cfg: FilterConfig) -> tuple[bool, str]:
         return False, hard
 
     text = f"{candidate.title} {candidate.text_blob}".lower()
+
+    if candidate.price is not None and candidate.price < cfg.min_price_eur:
+        return False, (
+            f"цена {candidate.price:.0f}€ < {cfg.min_price_eur:.0f}€ "
+            f"(лизинг/ошибка)"
+        )
 
     if candidate.price is not None and candidate.price > cfg.max_price_eur:
         return False, f"цена {candidate.price:.0f}€ > лимита {cfg.max_price_eur:.0f}€"
@@ -171,7 +179,7 @@ def score_closeness(candidate: Candidate, cfg: FilterConfig) -> Closeness | None
         gaps.append(f'{inches}" > {cfg.max_screen_inch}"')
 
     # --- price ---
-    min_plausible = 250.0
+    min_plausible = cfg.min_price_eur
     if candidate.price is None:
         score += 50.0
         gaps.append("цена неизвестна")
@@ -248,7 +256,7 @@ def rank_closest(
         price = item.candidate.price
         if price is None:
             return False
-        if price < 250:
+        if price < cfg.min_price_eur:
             return False
         return price <= cfg.max_price_eur + max_over
 
