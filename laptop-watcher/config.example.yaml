@@ -12,6 +12,8 @@ scan:
   # Топ ближайших к фильтрам (цена + Hz + диагональ) в Telegram после прогона
   closest_top: 5
   notify_closest: true
+  # Насколько можно вылезти за max_price, чтобы ещё считаться «близко»
+  closest_max_over_eur: 250
 
 filters:
   max_price_eur: 900

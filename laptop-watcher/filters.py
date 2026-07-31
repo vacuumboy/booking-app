@@ -19,6 +19,8 @@ class FilterConfig:
     # reject = нет Hz → отбросить; accept = нет Hz → пропустить
     # specs_db = нет Hz в карточке, но если в базе спеков есть — используем её
     unknown_refresh_policy: str = "reject"
+    # Для топа «ближайшие»: насколько можно вылезти за бюджет
+    closest_max_over_eur: float = 250.0
 
 
 @dataclass
@@ -228,13 +230,25 @@ def rank_closest(
         price = item.candidate.price if item.candidate.price is not None else 1e9
         return (item.score, price)
 
-    # Tier A: confirmed target Hz + screen in range
+    # How far over budget still counts as "close" (default +250€)
+    max_over = float(getattr(cfg, "closest_max_over_eur", 250) or 250)
+
+    def price_near(item: Closeness) -> bool:
+        price = item.candidate.price
+        if price is None:
+            return False
+        if price < 250:
+            return False
+        return price <= cfg.max_price_eur + max_over
+
+    # Tier A: confirmed target Hz + screen in range + price not insane
     tier_a = [
         item
         for item in scored
         if item.hz is not None
         and item.hz >= cfg.min_refresh_hz
         and screen_ok(item)
+        and price_near(item)
     ]
     tier_a.sort(key=sort_key)
     if len(tier_a) >= top:
@@ -250,6 +264,7 @@ def rank_closest(
         and item.hz is not None
         and item.hz >= floor_hz
         and screen_ok(item)
+        and price_near(item)
     ]
     tier_b.sort(key=sort_key)
 

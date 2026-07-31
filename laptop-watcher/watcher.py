@@ -45,6 +45,11 @@ def build_filter_config(raw: dict) -> FilterConfig:
         exclude_keywords=list(filters.get("exclude_keywords", [])),
         refresh_keywords=list(filters.get("refresh_keywords", [])),
         unknown_refresh_policy=str(filters.get("unknown_refresh_policy", "reject")),
+        closest_max_over_eur=float(
+            raw.get("scan", {}).get("closest_max_over_eur")
+            or filters.get("closest_max_over_eur")
+            or 250
+        ),
     )
 
 
