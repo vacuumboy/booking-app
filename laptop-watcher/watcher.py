@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import time
 from pathlib import Path
 
 import yaml
@@ -12,7 +11,7 @@ from dotenv import load_dotenv
 
 from filters import Candidate, FilterConfig, matches
 from notify import fetch_chat_ids, format_match, send_telegram
-from sources import enrich_euronics_listing, fetch_dateks_url, fetch_euronics_listings
+from sources.collector import collect_raw_listings
 from storage import ListingRecord, ListingStore
 
 
@@ -43,44 +42,17 @@ def build_filter_config(raw: dict) -> FilterConfig:
 def collect_candidates(config: dict) -> list[Candidate]:
     candidates: list[Candidate] = []
 
-    euronics_cfg = config.get("sources", {}).get("euronics", {})
-    if euronics_cfg.get("enabled", True):
-        print("Сканирую Euronics...")
-        for item in fetch_euronics_listings(euronics_cfg["list_url"]):
-            enriched = enrich_euronics_listing(item.url)
-            if enriched is None:
-                continue
-            candidates.append(
-                Candidate(
-                    url=enriched.url,
-                    title=enriched.title,
-                    price=enriched.price,
-                    source=enriched.source,
-                    store=enriched.store,
-                    text_blob=enriched.text_blob,
-                )
+    for item in collect_raw_listings(config):
+        candidates.append(
+            Candidate(
+                url=item.url,
+                title=item.title,
+                price=item.price,
+                source=item.source,
+                store=item.store,
+                text_blob=item.text_blob,
             )
-            time.sleep(0.4)
-
-    dateks_cfg = config.get("sources", {}).get("dateks_urls", {})
-    if dateks_cfg.get("enabled", True):
-        print("Проверяю Dateks URL...")
-        for url in dateks_cfg.get("urls", []):
-            item = fetch_dateks_url(url)
-            if item is None:
-                print(f"  ⚠ не удалось прочитать: {url}")
-                continue
-            candidates.append(
-                Candidate(
-                    url=item.url,
-                    title=item.title,
-                    price=item.price,
-                    source=item.source,
-                    store=item.store,
-                    text_blob=item.text_blob,
-                )
-            )
-            time.sleep(0.5)
+        )
 
     return candidates
 
@@ -119,6 +91,7 @@ def run_once(config_path: Path, dry_run: bool = False) -> int:
             price=candidate.price,
             url=candidate.url,
             reason="новый" if is_new else "цена упала",
+            store=candidate.store,
         )
         print(message)
         print("---")

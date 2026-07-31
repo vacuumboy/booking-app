@@ -56,10 +56,12 @@ def send_telegram(message: str) -> None:
         response.raise_for_status()
 
 
-def format_match(title: str, price: float | None, url: str, reason: str) -> str:
+def format_match(title: str, price: float | None, url: str, reason: str, store: str = "") -> str:
     price_line = f"💰 {price:.0f} €" if price is not None else "💰 цена неизвестна"
+    store_line = f"🏪 {store}\n" if store else ""
     return (
         "🖥 Нашёл вариант под твои фильтры\n\n"
+        f"{store_line}"
         f"{title}\n"
         f"{price_line}\n"
         f"🔗 {url}\n\n"

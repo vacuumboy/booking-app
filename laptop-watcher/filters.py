@@ -48,12 +48,16 @@ def matches(candidate: Candidate, cfg: FilterConfig) -> tuple[bool, str]:
     if not _has_refresh(text, cfg):
         return False, f"нет {cfg.min_refresh_hz} Hz в данных"
 
-    inches = _extract_screen_inches(text)
+    inches = _extract_screen_inches(candidate.title)
+    if inches is None:
+        inches = _extract_screen_inches(text)
     if inches is not None:
         if inches < cfg.min_screen_inch or inches > cfg.max_screen_inch:
             return False, f"диагональ {inches}\" вне {cfg.min_screen_inch}-{cfg.max_screen_inch}\""
 
-    weight = _extract_weight_kg(text)
+    weight = _extract_weight_kg(candidate.text_blob)
+    if weight is None:
+        weight = _extract_weight_kg(text)
     if weight is not None and weight > cfg.max_weight_kg:
         return False, f"вес {weight} кг > {cfg.max_weight_kg} кг"
 
@@ -65,8 +69,10 @@ def _has_refresh(text: str, cfg: FilterConfig) -> bool:
         if kw.lower() in text:
             return True
 
-    hz_values = [int(x) for x in re.findall(r"(\d{2,3})\s*hz", text)]
-    return any(hz >= cfg.min_refresh_hz for hz in hz_values)
+    for match in re.finditer(r"(?<![\dx])(\d{2,3})\s*hz\b", text, re.IGNORECASE):
+        if int(match.group(1)) >= cfg.min_refresh_hz:
+            return True
+    return False
 
 
 def _extract_screen_inches(text: str) -> float | None:
